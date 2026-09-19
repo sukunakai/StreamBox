@@ -1,0 +1,139 @@
+{
+  "entities": {
+    "Series": {
+      "title": "Series",
+      "description": "Top-level metadata for video shows, movies, and sports streams",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique slug or document ID" },
+        "title": { "type": "string", "description": "Display title of the show or movie" },
+        "category": { "type": "string", "description": "Content category (e.g., Trending, MangoTV, Bengali, Football)" },
+        "poster": { "type": "string", "format": "uri", "description": "Poster card image URL" },
+        "rating": { "type": "string", "description": "Audience score rating (e.g., 9.6)" },
+        "year": { "type": "string", "description": "Release year" },
+        "seasonCount": { "type": "integer", "description": "Number of available seasons" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "title", "category", "poster"]
+    },
+    "Episode": {
+      "title": "Episode",
+      "description": "Episode item with video stream source, audio tracks, and subtitles",
+      "type": "object",
+      "properties": {
+        "episodeNumber": { "type": "integer", "description": "Sequential episode number" },
+        "seasonNumber": { "type": "integer", "description": "Parent season number" },
+        "title": { "type": "string", "description": "Episode title" },
+        "videoUrl": { "type": "string", "format": "uri", "description": "HLS (.m3u8) or MP4 streaming URL" },
+        "duration": { "type": "string", "description": "Runtime string (e.g. 48m)" },
+        "audioTracks": { "type": "string", "description": "Comma-separated audio channels" },
+        "subtitles": { "type": "string", "description": "Comma-separated subtitle languages" },
+        "resolutionOptions": { 
+          "type": "array", 
+          "items": { "type": "string" },
+          "description": "Available resolutions: 360p, 480p, 720p, 1080p, 4K" 
+        }
+      },
+      "required": ["episodeNumber", "title", "videoUrl"]
+    },
+    "UserProfile": {
+      "title": "UserProfile",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "displayName": { "type": "string" },
+        "isVipPro": { "type": "boolean" },
+        "vipPlan": { "type": "string", "enum": ["monthly", "quarterly", "yearly"] },
+        "watchHistory": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "seriesId": { "type": "string" },
+              "episodeNumber": { "type": "integer" },
+              "progress": { "type": "number" },
+              "lastWatched": { "type": "string", "format": "date-time" }
+            }
+          }
+        },
+        "watchlist": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "isVip": { "type": "boolean" },
+        "vipTier": { "type": "string" },
+        "vipExpiry": { "type": "string" }
+      },
+      "required": ["uid", "email"]
+    },
+    "EmailVerification": {
+      "title": "EmailVerification",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string", "format": "email" },
+        "code": { "type": "string" },
+        "createdAt": { "type": "integer" },
+        "expiresAt": { "type": "integer" },
+        "verified": { "type": "boolean" }
+      },
+      "required": ["email", "code", "expiresAt"]
+    },
+    "AppConfig": {
+      "title": "AppConfig",
+      "type": "object",
+      "properties": {
+        "googleAdSenseId": { "type": "string" },
+        "adminUpiId": { "type": "string" },
+        "adFrequencyMinutes": { "type": "number" },
+        "totalImpressions": { "type": "number" },
+        "totalAdRevenue": { "type": "number" },
+        "totalVipRevenue": { "type": "number" }
+      }
+    },
+    "Transaction": {
+      "title": "Transaction",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "userEmail": { "type": "string" },
+        "planId": { "type": "string" },
+        "planName": { "type": "string" },
+        "amount": { "type": "number" },
+        "method": { "type": "string" },
+        "utrNumber": { "type": "string" },
+        "status": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "amount", "status"]
+    }
+  },
+  "firestore": {
+    "/series/{seriesId}": {
+      "schema": "Series",
+      "description": "All streaming movies, series, and sports programs"
+    },
+    "/series/{seriesId}/episodes/{episodeId}": {
+      "schema": "Episode",
+      "description": "Sub-collection of episodic video streams with audio and subtitle mappings"
+    },
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "User profile with synchronized watchlist, VIP status, and watch progress"
+    },
+    "/emailVerifications/{verificationId}": {
+      "schema": "EmailVerification",
+      "description": "Temporary 6-digit email sign-in verification codes"
+    },
+    "/appConfig/{configId}": {
+      "schema": "AppConfig",
+      "description": "Google AdSense and monetization configuration"
+    },
+    "/transactions/{txId}": {
+      "schema": "Transaction",
+      "description": "VIP plan purchases and subscription transactions"
+    }
+  }
+}

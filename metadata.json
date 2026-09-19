@@ -1,0 +1,7 @@
+{
+  "name": "StreamBox",
+  "description": "Enterprise-grade video streaming web application featuring an advanced HLS player, gesture controls, PiP mini-player, rich browsing categories, offline download management, and admin bulk content manager.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
+

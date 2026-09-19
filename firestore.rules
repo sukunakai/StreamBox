@@ -1,0 +1,56 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && request.auth.token.email == 'vimleshkumar901559@gmail.com';
+    }
+
+    // Health / connection test doc
+    match /test/{docId} {
+      allow read, write: if true;
+    }
+
+    // Series catalog - Publicly readable for all viewers; only admin can create, edit, or delete
+    match /series/{seriesId} {
+      allow read: if true;
+      allow write: if isAdmin();
+
+      // Episodes subcollection
+      match /episodes/{episodeId} {
+        allow read: if true;
+        allow write: if isAdmin();
+      }
+    }
+
+    // User profiles & watch progress - Strict owner-only access
+    match /users/{userId} {
+      allow read, write: if isOwner(userId);
+    }
+
+    // Temporary email verification OTP codes (Used during 2-Step Email Sign In)
+    match /emailVerifications/{verificationId} {
+      allow read, write: if true;
+    }
+
+    // Google AdSense & Monetization configuration (Public read, admin write)
+    match /appConfig/{configId} {
+      allow read: if true;
+      allow write: if true; // Allows clients to increment impressions and admin to save config
+    }
+
+    // VIP Plan Purchases & Subscriptions Transactions
+    match /transactions/{txId} {
+      allow read: if true;
+      allow write: if true;
+    }
+  }
+}

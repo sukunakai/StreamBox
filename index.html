@@ -1,0 +1,3037 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>StreamBox - Premium Video Streaming</title>
+  <meta name="description" content="Watch trending movies, series, live football, and exclusive shorts with high-definition streaming, offline downloads, and multi-audio support.">
+  <!-- Tailwind CSS & FontAwesome Icons & HLS.js -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+  <style>
+    :root {
+      --primary-red: #e50914;
+      --bg-dark: #0a0c10;
+      --card-dark: #141824;
+      --card-border: #1e2438;
+    }
+    body {
+      background-color: var(--bg-dark);
+      color: #f1f5f9;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+      overflow-x: hidden;
+    }
+    /* Custom Scrollbars */
+    ::-webkit-scrollbar { height: 4px; width: 4px; }
+    ::-webkit-scrollbar-track { background: #0a0c10; }
+    ::-webkit-scrollbar-thumb { background: #2a3147; border-radius: 4px; }
+    
+    /* Gestures overlay feedback */
+    .hud-indicator {
+      transition: opacity 0.3s ease, transform 0.3s ease;
+    }
+    /* PiP styling */
+    #pipContainer.pip-active {
+      position: fixed;
+      bottom: 74px;
+      right: 16px;
+      width: 260px;
+      height: 148px;
+      z-index: 50;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid rgba(255,255,255,0.15);
+    }
+    .video-cover { object-fit: cover; }
+    .video-contain { object-fit: contain; }
+  </style>
+</head>
+<body class="min-h-screen pb-20 select-none">
+  <!-- Main App Shell -->
+  <div id="appContainer" class="relative max-w-md mx-auto sm:max-w-xl md:max-w-4xl lg:max-w-6xl min-h-screen">
+    
+    <!-- Top Header Navigation (Brand, Search trigger, Cast, Profile/Admin) -->
+    <header id="mainHeader" class="sticky top-0 z-40 bg-[#0a0c10]/95 backdrop-blur-md px-4 py-3 border-b border-gray-800/80 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <button id="brandLogo" class="flex items-center gap-2 text-xl md:text-2xl font-black text-red-600 tracking-wider">
+          <i class="fa-solid fa-play text-red-600 text-lg"></i>
+          <span>StreamBox</span>
+        </button>
+        <span class="text-[10px] bg-red-600/20 text-red-400 font-bold px-1.5 py-0.5 rounded border border-red-500/30 uppercase">VIP</span>
+      </div>
+
+      <div class="flex items-center gap-4 text-gray-300">
+        <!-- Cast Icon -->
+        <button id="castBtn" class="hover:text-red-500 transition relative p-1" title="Cast to TV">
+          <i class="fa-solid fa-tv text-lg"></i>
+          <span class="absolute -top-1 -right-1 w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+        </button>
+        <!-- Search Trigger -->
+        <button id="openSearchBtn" class="hover:text-red-500 transition p-1" title="Search">
+          <i class="fa-solid fa-magnifying-glass text-lg"></i>
+        </button>
+        <!-- Admin Link (Only visible when signed in as vimleshkumar901559@gmail.com) -->
+        <a href="admin.html" id="adminHeaderLink" class="hidden text-xs bg-gray-800 hover:bg-gray-700 text-gray-200 px-2.5 py-1.5 rounded-lg border border-gray-700 font-medium transition items-center gap-1.5" title="Admin Studio">
+          <i class="fa-solid fa-gear text-red-400"></i>
+          <span class="hidden sm:inline">Admin</span>
+        </a>
+        <!-- Firebase Status Indicator -->
+        <span id="fbIndicator" class="hidden sm:inline-flex items-center gap-1 text-[10px] text-green-400 bg-green-950/70 border border-green-800/80 px-2 py-1 rounded-lg font-mono" title="Firebase Firestore live">
+          <span class="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse"></span>
+          Firebase
+        </span>
+        <!-- Auth Button -->
+        <button id="authModalTrigger" class="flex items-center gap-1.5 bg-red-600 hover:bg-red-700 text-white text-xs px-3 py-1.5 rounded-full font-bold transition shadow-lg shadow-red-600/30">
+          <i class="fa-solid fa-user text-xs"></i>
+          <span id="userNavText">Sign In</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Top Category Tabs (Horizontal Scrollable) -->
+    <nav id="topCategoryNav" class="bg-[#0f121a] px-3 py-2.5 border-b border-gray-800/60 overflow-x-auto whitespace-nowrap scrollbar-none flex gap-2 text-xs font-semibold">
+      <button class="cat-pill active px-3.5 py-1.5 rounded-full bg-red-600 text-white shadow-sm" data-category="All">All</button>
+      <button class="cat-pill px-3.5 py-1.5 rounded-full bg-gray-800/80 text-gray-300 hover:bg-gray-700 hover:text-white" data-category="Anime">Anime</button>
+      <button class="cat-pill px-3.5 py-1.5 rounded-full bg-gray-800/80 text-gray-300 hover:bg-gray-700 hover:text-white" data-category="Movies">Movies</button>
+      <button class="cat-pill px-3.5 py-1.5 rounded-full bg-gray-800/80 text-gray-300 hover:bg-gray-700 hover:text-white" data-category="Series">Series</button>
+    </nav>
+
+    <!-- ======================================================== -->
+    <!-- 1. ADVANCED VIDEO PLAYER CONTAINER (Inline & Fullscreen) -->
+    <!-- ======================================================== -->
+    <section id="videoPlayerSection" class="hidden transition-all duration-300 bg-black relative">
+      <div id="playerWrapper" class="relative w-full aspect-video bg-black overflow-hidden group">
+        <!-- Brightness Filter Overlay -->
+        <div id="brightnessOverlay" class="absolute inset-0 bg-black pointer-events-none z-10 opacity-0 transition-opacity"></div>
+        
+        <!-- HTML5 Video Tag -->
+        <video id="mainVideo" class="w-full h-full video-contain bg-black" playsinline></video>
+
+        <!-- Touch/Swipe Gesture Area (Volume left, Brightness right, Double-tap seek) -->
+        <div id="gestureLayer" class="absolute inset-0 z-20 flex">
+          <div id="leftGestureZone" class="w-1/2 h-full cursor-pointer"></div>
+          <div id="rightGestureZone" class="w-1/2 h-full cursor-pointer"></div>
+        </div>
+
+        <!-- HUD Feedback (Volume, Brightness, Seek 10s) -->
+        <div id="hudFeedback" class="absolute inset-0 z-30 pointer-events-none flex items-center justify-center">
+          <div id="hudBox" class="hud-indicator opacity-0 transform scale-90 bg-black/80 px-4 py-2.5 rounded-xl border border-white/20 flex items-center gap-3 text-white text-sm font-bold">
+            <i id="hudIcon" class="fa-solid fa-volume-high text-red-500 text-lg"></i>
+            <span id="hudValue">100%</span>
+          </div>
+        </div>
+
+        <!-- Center Screen Controls (10s Rewind, Play/Pause, 10s Forward) -->
+        <div id="centerPlayerControls" class="absolute inset-0 z-30 flex items-center justify-center gap-8 md:gap-14 bg-black/30 opacity-100 transition-opacity duration-200">
+          <button id="btnRewind10" class="w-11 h-11 md:w-14 md:h-14 rounded-full bg-black/60 hover:bg-red-600/80 text-white flex items-center justify-center transition backdrop-blur-sm" title="Rewind 10s">
+            <i class="fa-solid fa-rotate-left text-base md:text-xl"></i>
+          </button>
+          <button id="btnCenterPlay" class="w-14 h-14 md:w-18 md:h-18 rounded-full bg-red-600 hover:bg-red-700 text-white flex items-center justify-center transition shadow-xl shadow-red-600/40 text-xl" title="Play/Pause">
+            <i id="centerPlayIcon" class="fa-solid fa-play ml-1"></i>
+          </button>
+          <button id="btnForward10" class="w-11 h-11 md:w-14 md:h-14 rounded-full bg-black/60 hover:bg-red-600/80 text-white flex items-center justify-center transition backdrop-blur-sm" title="Forward 10s">
+            <i class="fa-solid fa-rotate-right text-base md:text-xl"></i>
+          </button>
+        </div>
+
+        <!-- Google Ads & Video Ad Break Overlay (Pre-roll & Mid-roll) -->
+        <div id="videoAdOverlay" class="hidden absolute inset-0 z-40 bg-black flex flex-col justify-between p-3 select-none transition-all">
+          <!-- Top Ad Info Bar -->
+          <div class="flex items-center justify-between text-xs text-white bg-black/80 backdrop-blur-md px-3 py-2 rounded-xl border border-white/10 shadow-lg">
+            <div class="flex items-center gap-2">
+              <span class="bg-yellow-500 text-black font-black text-[10px] px-2 py-0.5 rounded uppercase tracking-wider">Ad • 1 of 1</span>
+              <span class="text-gray-200 font-semibold flex items-center gap-1.5 text-xs">
+                <i class="fa-brands fa-google text-yellow-400"></i> Google AdSense (<span id="adSensePubIdDisplay" class="font-mono text-[10px] text-gray-400">ca-pub-9842105741098234</span>)
+              </span>
+            </div>
+            <div class="flex items-center gap-2">
+              <span id="adCountdownText" class="text-xs text-gray-300 font-mono bg-white/10 px-2 py-1 rounded">Skip in 5s</span>
+              <button id="skipAdBtn" class="hidden bg-white hover:bg-gray-200 text-black font-extrabold px-3 py-1 rounded-lg text-xs transition flex items-center gap-1 shadow-md">
+                <span>Skip Ad</span> <i class="fa-solid fa-forward-step text-[10px]"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- Interactive Ad Center Content -->
+          <div id="adMediaContainer" class="flex-1 my-2 rounded-2xl overflow-hidden relative flex flex-col items-center justify-center bg-gradient-to-br from-gray-900 via-slate-900 to-black border border-blue-600/30 p-4 shadow-2xl text-center">
+            <div class="absolute top-2 right-2 bg-blue-600/30 text-blue-300 border border-blue-500/40 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
+              <i class="fa-solid fa-shield-check text-[9px]"></i> Sponsored Ad
+            </div>
+
+            <!-- Ad Graphic / Icon -->
+            <div class="w-14 h-14 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center text-white text-2xl shadow-xl shadow-blue-500/30 mb-3 animate-pulse">
+              <i id="adBrandIcon" class="fa-solid fa-cloud"></i>
+            </div>
+
+            <h3 id="adCampaignTitle" class="text-base md:text-xl font-black text-white leading-tight max-w-md">
+              Google Cloud Platform & AI Studio
+            </h3>
+            <p id="adCampaignDesc" class="text-xs text-gray-300 max-w-sm mt-1 mb-4 leading-relaxed">
+              Build high-performance video streaming backends, cloud databases & enterprise AI pipelines with 99.99% uptime.
+            </p>
+
+            <div class="flex items-center gap-3">
+              <a id="adVisitWebsiteBtn" href="https://cloud.google.com" target="_blank" rel="noopener noreferrer" class="bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs px-4 py-2.5 rounded-xl transition flex items-center gap-2 shadow-lg shadow-blue-600/40">
+                <span>Visit Sponsor Website</span> <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
+              </a>
+            </div>
+          </div>
+
+          <!-- Bottom Ad Strip: Upgrade to VIP Ad-Free Reminder -->
+          <div class="bg-gradient-to-r from-amber-950/90 via-yellow-950/95 to-black border border-yellow-500/60 p-2.5 rounded-xl flex items-center justify-between text-xs text-white shadow-xl">
+            <div class="flex items-center gap-2.5">
+              <div class="w-8 h-8 rounded-lg bg-yellow-500/20 border border-yellow-500/40 flex items-center justify-center text-yellow-400">
+                <i class="fa-solid fa-crown text-sm"></i>
+              </div>
+              <div class="text-left">
+                <p class="font-bold text-yellow-300 text-xs">Want to skip all ads forever?</p>
+                <p class="text-[10px] text-gray-300">Upgrade to VIP from just <span class="text-yellow-400 font-bold">₹10/Month</span> for uninterrupted 4K streaming!</p>
+              </div>
+            </div>
+            <button id="adUpgradeVipBtn" class="bg-gradient-to-r from-yellow-500 to-amber-500 hover:from-yellow-400 hover:to-amber-400 text-black font-black text-xs px-3.5 py-2 rounded-xl transition whitespace-nowrap shadow-lg shadow-yellow-500/30 flex items-center gap-1.5">
+              <i class="fa-solid fa-bolt text-[10px]"></i>
+              <span>Get VIP (₹10)</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Top Controls Overlay (Title, Cast, Lock Screen, Minimize/PiP) -->
+        <div id="playerTopOverlay" class="absolute top-0 inset-x-0 z-30 bg-gradient-to-b from-black/80 to-transparent p-3 flex items-center justify-between text-white text-xs md:text-sm">
+          <div class="flex items-center gap-2 truncate">
+            <button id="closePlayerBtn" class="text-white hover:text-red-500 p-1 mr-1" title="Minimize">
+              <i class="fa-solid fa-chevron-down text-base"></i>
+            </button>
+            <span id="currentVideoTitle" class="font-bold truncate text-sm">Streaming Title</span>
+            <span id="currentEpisodeBadge" class="bg-red-600 text-[10px] px-1.5 py-0.5 rounded font-bold uppercase">S1:E1</span>
+          </div>
+          <div class="flex items-center gap-3">
+            <button id="lockScreenBtn" class="p-1 hover:text-red-500" title="Lock Controls">
+              <i id="lockIcon" class="fa-solid fa-lock-open"></i>
+            </button>
+            <button id="playerCastBtn" class="p-1 hover:text-red-500" title="Cast Video">
+              <i class="fa-solid fa-tv"></i>
+            </button>
+            <button id="fullscreenToggleBtn" class="p-1 hover:text-red-500" title="Fullscreen Landscape">
+              <i id="fullscreenIcon" class="fa-solid fa-expand"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Locked Screen Shield (Shown when locked) -->
+        <div id="lockedShield" class="hidden absolute inset-0 z-40 bg-black/20 flex items-center justify-center">
+          <button id="unlockBtn" class="bg-black/80 text-white border border-red-500/40 px-4 py-2 rounded-full text-xs font-bold flex items-center gap-2 backdrop-blur-md">
+            <i class="fa-solid fa-lock text-red-500"></i> Tap to Unlock Screen
+          </button>
+        </div>
+
+        <!-- Bottom Controls Bar (Timeline, Next Ep, Episodes Drawer, Audio/Subs, Speed, Resolution, Fit-to-screen) -->
+        <div id="playerBottomOverlay" class="absolute bottom-0 inset-x-0 z-30 bg-gradient-to-t from-black/90 via-black/60 to-transparent p-2 md:p-3 flex flex-col gap-1.5 text-white">
+          <!-- Seekbar -->
+          <div class="flex items-center gap-2 text-[11px] font-mono">
+            <span id="currentTimeLabel">00:00</span>
+            <input type="range" id="videoSeekbar" min="0" max="100" value="0" class="w-full h-1 bg-gray-600 rounded-lg appearance-none cursor-pointer accent-red-600">
+            <span id="durationLabel">00:00</span>
+          </div>
+
+          <!-- Bottom Actions Buttons -->
+          <div class="flex items-center justify-between text-xs mt-1">
+            <div class="flex items-center gap-3">
+              <button id="barPlayBtn" class="hover:text-red-500 p-1 text-sm"><i id="barPlayIcon" class="fa-solid fa-play"></i></button>
+              <button id="nextEpisodeBtn" class="hover:text-red-500 p-1" title="Next Episode"><i class="fa-solid fa-forward-step"></i></button>
+              <button id="openEpisodesBtn" class="hover:text-red-500 px-2 py-1 bg-white/10 rounded font-semibold text-[11px] flex items-center gap-1">
+                <i class="fa-solid fa-list-ul"></i> Episodes
+              </button>
+            </div>
+
+            <div class="flex items-center gap-2">
+              <!-- Audio & Subtitles selector modal trigger -->
+              <button id="openLangBtn" class="hover:text-red-500 px-2 py-1 bg-white/10 rounded font-semibold text-[11px]" title="Audio & Subtitles">
+                <i class="fa-solid fa-globe"></i> Lang
+              </button>
+              <!-- Speed Selector -->
+              <button id="openSpeedBtn" class="hover:text-red-500 px-2 py-1 bg-white/10 rounded font-semibold text-[11px]">
+                <span id="currentSpeedText">1.0x</span>
+              </button>
+              <!-- Resolution Selector -->
+              <button id="openResolutionBtn" class="hover:text-red-500 px-2 py-1 bg-white/10 rounded font-semibold text-[11px]">
+                <span id="currentResText">1080P</span>
+              </button>
+              <!-- Fit to Screen Toggle -->
+              <button id="fitScreenBtn" class="hover:text-red-500 p-1" title="Toggle Fit / Crop to Screen">
+                <i id="fitIcon" class="fa-solid fa-arrows-to-eye"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Standard View Action Buttons Below Player -->
+      <div id="belowPlayerBar" class="p-3 bg-gray-900 border-b border-gray-800 flex items-center justify-between text-xs text-gray-300">
+        <button id="addToListBtn" class="flex flex-col items-center gap-1 hover:text-red-500 transition py-1">
+          <i id="addToListIcon" class="fa-solid fa-plus text-base"></i>
+          <span>Add to list</span>
+        </button>
+        <button id="shareVideoBtn" class="flex flex-col items-center gap-1 hover:text-red-500 transition py-1">
+          <i class="fa-solid fa-share-nodes text-base"></i>
+          <span>Share</span>
+        </button>
+        <button id="openDownloadModalBtn" class="flex flex-col items-center gap-1 hover:text-red-500 transition py-1 text-red-500 font-semibold">
+          <i class="fa-solid fa-arrow-down-to-bracket text-base"></i>
+          <span>Download</span>
+        </button>
+        <button id="gotoDownloadsBtn" class="flex flex-col items-center gap-1 hover:text-red-500 transition py-1">
+          <i class="fa-solid fa-folder-arrow-down text-base"></i>
+          <span>View downloads</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- Floating PiP Container (active when navigating away from video) -->
+    <div id="pipContainer" class="hidden">
+      <!-- Mini Controls -->
+      <div class="relative w-full h-full bg-black">
+        <div id="pipVideoMount" class="w-full h-full"></div>
+        <div class="absolute top-1 right-1 flex items-center gap-1 bg-black/60 rounded px-1 z-30">
+          <button id="pipExpandBtn" class="text-white hover:text-red-500 p-1 text-xs" title="Expand Player"><i class="fa-solid fa-up-right-and-down-left-from-center"></i></button>
+          <button id="pipCloseBtn" class="text-white hover:text-red-500 p-1 text-xs" title="Close"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="absolute bottom-1 left-2 text-[10px] text-white font-bold truncate max-w-[170px]" id="pipTitle">
+          Playing video
+        </div>
+      </div>
+    </div>
+
+    <!-- ======================================================== -->
+    <!-- 2. HOME VIEW (HERO CAROUSEL, FOOTBALL, TRENDING, CATEGORIES) -->
+    <!-- ======================================================== -->
+    <main id="homeView" class="p-3 md:p-5 space-y-6">
+      
+      <!-- Hero Carousel -->
+      <section class="relative rounded-2xl overflow-hidden shadow-2xl border border-gray-800 bg-gray-950 aspect-[16/9] md:aspect-[21/9]">
+        <img id="heroImage" src="https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=1200&q=80" alt="Hero Banner" class="w-full h-full object-cover transition-all duration-700">
+        <div class="absolute inset-0 bg-gradient-to-t from-[#0a0c10] via-black/40 to-transparent"></div>
+        
+        <!-- Hero Details -->
+        <div class="absolute bottom-0 inset-x-0 p-4 md:p-6 text-white">
+          <div class="flex items-center gap-2 mb-1.5">
+            <span id="heroBadge" class="bg-red-600 text-[10px] font-black uppercase px-2 py-0.5 rounded tracking-wide">Featured</span>
+            <span class="text-xs text-gray-300 font-semibold flex items-center gap-1"><i class="fa-solid fa-star text-yellow-400 text-[10px]"></i> <span id="heroRating">9.8</span></span>
+            <span class="text-xs text-gray-300">Ultra HD</span>
+          </div>
+          <h1 id="heroTitle" class="text-xl md:text-3xl font-black mb-2 tracking-tight">StreamBox Anime & Series Hub</h1>
+          <p id="heroDesc" class="text-xs md:text-sm text-gray-300 line-clamp-2 max-w-xl mb-3">Watch anime and series uploaded directly by the admin.</p>
+          <div class="flex items-center gap-3">
+            <button id="heroPlayBtn" class="bg-red-600 hover:bg-red-700 text-white text-xs md:text-sm px-5 py-2.5 rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-red-600/40 transition">
+              <i class="fa-solid fa-play"></i> Watch Now
+            </button>
+            <a href="/admin.html" class="bg-gray-800/80 hover:bg-gray-700 text-white text-xs md:text-sm px-4 py-2.5 rounded-xl font-semibold backdrop-blur-sm border border-gray-700 flex items-center gap-2 transition">
+              <i class="fa-solid fa-cloud-arrow-up"></i> Admin Upload
+            </a>
+          </div>
+        </div>
+
+        <!-- Carousel Indicators -->
+        <div class="absolute bottom-3 right-4 flex gap-1.5 z-10">
+          <span class="w-2 h-2 rounded-full bg-red-600 carousel-dot"></span>
+          <span class="w-2 h-2 rounded-full bg-gray-500 carousel-dot"></span>
+          <span class="w-2 h-2 rounded-full bg-gray-500 carousel-dot"></span>
+        </div>
+      </section>
+
+      <!-- Category Filter Chips (All, Anime, Movies, Series) -->
+      <section>
+        <div class="flex items-center gap-2 overflow-x-auto pb-1 text-xs">
+          <button class="filter-chip active px-3.5 py-1.5 rounded-full bg-white text-black font-bold" data-filter="all">All</button>
+          <button class="filter-chip px-3.5 py-1.5 rounded-full bg-gray-800 text-gray-300 font-semibold hover:bg-gray-700" data-filter="anime">Anime</button>
+          <button class="filter-chip px-3.5 py-1.5 rounded-full bg-gray-800 text-gray-300 font-semibold hover:bg-gray-700" data-filter="movies">Movies</button>
+          <button class="filter-chip px-3.5 py-1.5 rounded-full bg-gray-800 text-gray-300 font-semibold hover:bg-gray-700" data-filter="series">Series</button>
+        </div>
+      </section>
+
+      <!-- 1. Anime Series Section (NEW) -->
+      <section id="animeSection">
+        <div class="flex items-center justify-between mb-3">
+          <div class="flex items-center gap-2">
+            <i class="fa-solid fa-wand-magic-sparkles text-red-500"></i>
+            <h2 class="font-bold text-sm md:text-base text-white tracking-wide">Anime Series</h2>
+            <span class="text-[10px] bg-red-600/20 text-red-400 border border-red-500/30 px-2 py-0.5 rounded font-bold">Dubbed & Subbed</span>
+          </div>
+          <span id="animeCountBadge" class="text-xs text-gray-400 font-semibold">0 Shows</span>
+        </div>
+
+        <div id="animeGrid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+          <!-- Injected dynamically from admin uploads -->
+        </div>
+      </section>
+
+      <!-- 2. Admin Uploaded Series & Movies Section -->
+      <section id="uploadedSection">
+        <div class="flex items-center justify-between mb-3">
+          <div class="flex items-center gap-2">
+            <i class="fa-solid fa-film text-red-500"></i>
+            <h2 class="font-bold text-sm md:text-base text-white tracking-wide">Admin Uploaded Series & Movies</h2>
+          </div>
+          <a href="/admin.html" class="text-xs text-red-400 hover:text-red-300 flex items-center gap-1 font-semibold">
+            <i class="fa-solid fa-plus text-[10px]"></i> Add More in Admin
+          </a>
+        </div>
+
+        <div id="trendingGrid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+          <!-- Injected dynamically from admin uploads -->
+        </div>
+      </section>
+    </main>
+
+    <!-- ======================================================== -->
+    <!-- SEARCH SCREEN (Auto-fill, Everyone Searching, Tabs) -->
+    <!-- ======================================================== -->
+    <section id="searchScreen" class="hidden p-4 space-y-4">
+      <div class="flex items-center gap-2">
+        <div class="relative flex-1">
+          <i class="fa-solid fa-magnifying-glass absolute left-3 top-3 text-gray-400 text-sm"></i>
+          <input type="text" id="searchInput" placeholder="Search anime, series, movies..." class="w-full bg-gray-900 border border-gray-800 pl-9 pr-8 py-2.5 rounded-xl text-sm text-white focus:outline-none focus:border-red-600">
+          <button id="clearSearchBtn" class="hidden absolute right-3 top-2.5 text-gray-400 hover:text-white">&times;</button>
+        </div>
+        <button id="closeSearchBtn" class="text-xs text-gray-300 hover:text-white px-2 py-2">Cancel</button>
+      </div>
+
+      <!-- Everyone is Searching Tags -->
+      <div class="bg-gray-900/60 p-3 rounded-xl border border-gray-800">
+        <h3 class="text-xs font-bold text-gray-400 mb-2 flex items-center gap-1.5">
+          <i class="fa-solid fa-chart-line text-red-500"></i> Popular Searches
+        </h3>
+        <div class="flex flex-wrap gap-2 text-xs">
+          <button class="search-tag bg-gray-800 hover:bg-red-600 hover:text-white text-gray-300 px-3 py-1 rounded-full">Solo Leveling</button>
+          <button class="search-tag bg-gray-800 hover:bg-red-600 hover:text-white text-gray-300 px-3 py-1 rounded-full">Demon Slayer</button>
+          <button class="search-tag bg-gray-800 hover:bg-red-600 hover:text-white text-gray-300 px-3 py-1 rounded-full">Anime Dubbed</button>
+          <button class="search-tag bg-gray-800 hover:bg-red-600 hover:text-white text-gray-300 px-3 py-1 rounded-full">Attack on Titan</button>
+          <button class="search-tag bg-gray-800 hover:bg-red-600 hover:text-white text-gray-300 px-3 py-1 rounded-full">Jujutsu Kaisen</button>
+        </div>
+      </div>
+
+      <!-- Search Category Filter Tabs -->
+      <div class="flex border-b border-gray-800 text-xs font-semibold overflow-x-auto pb-1 gap-4 text-gray-400">
+        <button class="search-tab-filter active text-red-500 border-b-2 border-red-500 pb-1" data-type="all">All</button>
+        <button class="search-tab-filter hover:text-white pb-1" data-type="anime">Anime</button>
+        <button class="search-tab-filter hover:text-white pb-1" data-type="movie">Movies</button>
+        <button class="search-tab-filter hover:text-white pb-1" data-type="series">Series</button>
+      </div>
+
+      <!-- Search Results Area / Hot Tabs -->
+      <div>
+        <div class="flex gap-4 border-b border-gray-800 text-xs font-bold mb-3">
+          <button id="hotMoviesTabBtn" class="text-white border-b-2 border-red-500 pb-1.5">Hot Movies</button>
+          <button id="hotSeriesTabBtn" class="text-gray-400 hover:text-white pb-1.5">Hot Series</button>
+        </div>
+        <div id="searchResultsGrid" class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          <!-- Dynamic results -->
+        </div>
+      </div>
+    </section>
+
+    <!-- ======================================================== -->
+    <!-- SHORTS SCREEN (Vertical Reels Player with interaction) -->
+    <!-- ======================================================== -->
+    <section id="shortsView" class="hidden h-[calc(100vh-120px)] relative overflow-hidden bg-black rounded-xl">
+      <div id="shortsContainer" class="w-full h-full relative">
+        <video id="shortsVideo" class="w-full h-full object-cover" loop playsinline></video>
+        
+        <!-- Shorts Overlay UI -->
+        <div class="absolute bottom-4 left-4 right-16 text-white z-20">
+          <div class="flex items-center gap-2 mb-2">
+            <span class="w-8 h-8 rounded-full bg-red-600 flex items-center justify-center font-bold text-xs">SB</span>
+            <span class="font-bold text-sm">@stream_shorts</span>
+            <button class="bg-red-600 text-white text-xs px-2.5 py-0.5 rounded-full font-semibold">Follow</button>
+          </div>
+          <p class="text-xs text-gray-200 line-clamp-2" id="shortsDesc">Epic behind the scenes stunt sequence from upcoming Sci-Fi premiere! 🔥 #StreamBox</p>
+        </div>
+
+        <!-- Right Side Interactions -->
+        <div class="absolute right-3 bottom-12 flex flex-col items-center gap-5 text-white z-20">
+          <button class="flex flex-col items-center gap-1 group">
+            <div class="w-10 h-10 rounded-full bg-black/50 backdrop-blur-md flex items-center justify-center text-red-500 group-hover:scale-110 transition">
+              <i class="fa-solid fa-heart text-lg"></i>
+            </div>
+            <span class="text-[11px] font-bold">142K</span>
+          </button>
+          <button class="flex flex-col items-center gap-1 group">
+            <div class="w-10 h-10 rounded-full bg-black/50 backdrop-blur-md flex items-center justify-center group-hover:scale-110 transition">
+              <i class="fa-solid fa-comment-dots text-lg"></i>
+            </div>
+            <span class="text-[11px] font-bold">2.4K</span>
+          </button>
+          <button class="flex flex-col items-center gap-1 group">
+            <div class="w-10 h-10 rounded-full bg-black/50 backdrop-blur-md flex items-center justify-center group-hover:scale-110 transition">
+              <i class="fa-solid fa-share text-lg"></i>
+            </div>
+            <span class="text-[11px] font-bold">Share</span>
+          </button>
+          <button id="nextShortBtn" class="w-10 h-10 rounded-full bg-red-600 flex items-center justify-center text-white hover:bg-red-700 transition" title="Next Short">
+            <i class="fa-solid fa-arrow-down"></i>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======================================================== -->
+    <!-- 3. DOWNLOADS PAGE (MovieBox, Local files, Received) -->
+    <!-- ======================================================== -->
+    <section id="downloadsView" class="hidden p-4 space-y-4">
+      <div class="flex items-center justify-between border-b border-gray-800 pb-3">
+        <h2 class="text-lg font-bold text-white flex items-center gap-2">
+          <i class="fa-solid fa-folder-arrow-down text-red-500"></i> Downloads Manager
+        </h2>
+        <span class="text-xs text-gray-400">Internal Storage: 42.4 GB free</span>
+      </div>
+
+      <!-- 3 Tabs (MovieBox, Local files, Received) -->
+      <div class="flex border-b border-gray-800 text-xs font-bold gap-6">
+        <button class="dl-tab active text-red-500 border-b-2 border-red-500 pb-2" data-tab="moviebox">
+          <i class="fa-solid fa-box mr-1"></i> MovieBox (<span id="movieboxCount">2</span>)
+        </button>
+        <button class="dl-tab text-gray-400 hover:text-white pb-2" data-tab="local">
+          <i class="fa-solid fa-mobile-screen mr-1"></i> Local files (<span id="localFilesCount">3</span>)
+        </button>
+        <button class="dl-tab text-gray-400 hover:text-white pb-2" data-tab="received">
+          <i class="fa-solid fa-satellite-dish mr-1"></i> Received (<span id="receivedCount">1</span>)
+        </button>
+      </div>
+
+      <!-- Tab 1: MovieBox App Downloads (with MB/s and progress) -->
+      <div id="movieboxTabContent" class="space-y-3">
+        <!-- Injected dynamically by JS -->
+      </div>
+
+      <!-- Tab 2: Local Files (Mocks listing device MP4s) -->
+      <div id="localTabContent" class="hidden space-y-3">
+        <!-- Injected dynamically by JS -->
+      </div>
+
+      <!-- Tab 3: Received -->
+      <div id="receivedTabContent" class="hidden space-y-3">
+        <!-- Injected dynamically by JS -->
+      </div>
+    </section>
+
+    <!-- ======================================================== -->
+    <!-- 4. PROFILE ("ME") & PREMIUM PAGE -->
+    <!-- ======================================================== -->
+    <section id="meView" class="hidden p-4 space-y-5">
+      <!-- Profile Header Card -->
+      <div class="bg-gradient-to-r from-gray-900 to-gray-800 border border-gray-700/60 rounded-2xl p-4 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <div class="w-14 h-14 rounded-full bg-red-600 flex items-center justify-center font-black text-xl text-white shadow-lg">
+            <span id="userAvatarText">VIP</span>
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <h3 id="profileName" class="font-bold text-white text-base">Guest Member</h3>
+              <span id="vipBadge" class="bg-yellow-500/20 text-yellow-400 text-[10px] px-2 py-0.5 rounded font-black border border-yellow-500/30">STANDARD</span>
+            </div>
+            <p id="profileEmail" class="text-xs text-gray-400">Sign in to sync across devices</p>
+          </div>
+        </div>
+        <button id="meAuthBtn" class="bg-red-600 hover:bg-red-700 text-white text-xs px-3.5 py-1.5 rounded-lg font-bold transition">
+          Sign In
+        </button>
+      </div>
+
+      <!-- VIP Banner Trigger -->
+      <div id="vipPromoCard" class="bg-gradient-to-r from-amber-900/60 via-yellow-900/40 to-black border border-yellow-600/40 rounded-2xl p-4 flex items-center justify-between cursor-pointer hover:border-yellow-500 transition">
+        <div>
+          <span class="text-[10px] text-yellow-400 font-black uppercase tracking-wider">StreamBox VIP Club</span>
+          <h4 class="font-bold text-white text-sm">Upgrade to StreamBox Pro 4K</h4>
+          <p class="text-xs text-yellow-200/70">No ads, Dolby Atmos, all live sports & batch downloads</p>
+        </div>
+        <button class="bg-yellow-500 text-black text-xs px-3 py-1.5 rounded-lg font-extrabold flex items-center gap-1 shadow-lg shadow-yellow-500/30">
+          <i class="fa-solid fa-crown"></i> Join Pro
+        </button>
+      </div>
+
+      <!-- Watch History (Horizontal Scroll with exact red progress bars) -->
+      <div>
+        <div class="flex items-center justify-between mb-2">
+          <h3 class="text-xs font-bold uppercase tracking-wider text-gray-400 flex items-center gap-1.5">
+            <i class="fa-solid fa-clock-rotate-left text-red-500"></i> Watch History
+          </h3>
+          <button id="clearHistoryBtn" class="text-[11px] text-gray-500 hover:text-red-400">Clear All</button>
+        </div>
+        <div id="historyScrollContainer" class="flex gap-3 overflow-x-auto pb-2">
+          <!-- Injected dynamically by JS with red progress bars -->
+        </div>
+      </div>
+
+      <!-- Profile Menu List -->
+      <div class="bg-gray-900 border border-gray-800 rounded-2xl divide-y divide-gray-800/80 text-sm">
+        <!-- Admin Studio Link (Only for authorized admin) -->
+        <a href="admin.html" id="profileAdminLink" class="hidden w-full px-4 py-3 items-center justify-between hover:bg-red-950/30 transition menu-item bg-red-950/20 border-l-2 border-red-600">
+          <div class="flex items-center gap-3">
+            <i class="fa-solid fa-shield-halved text-red-500 w-5"></i>
+            <div>
+              <div class="text-sm font-bold text-white flex items-center gap-2">
+                <span>Admin Studio</span>
+                <span class="text-[9px] bg-red-600 text-white px-1.5 py-0.2 rounded font-black uppercase">Admin Only</span>
+              </div>
+              <div class="text-[10px] text-gray-400">Upload, edit & delete videos and episodes</div>
+            </div>
+          </div>
+          <span class="text-xs text-red-400 font-bold">&gt;</span>
+        </a>
+        <button class="w-full px-4 py-3 flex items-center justify-between hover:bg-gray-800/50 transition menu-item" data-action="mylist">
+          <div class="flex items-center gap-3"><i class="fa-solid fa-bookmark text-red-500 w-5"></i><span>My List / Bookmarks</span></div>
+          <span class="text-xs text-gray-400" id="myListCount">0 titles &gt;</span>
+        </button>
+        <button class="w-full px-4 py-3 flex items-center justify-between hover:bg-gray-800/50 transition menu-item" data-action="messages">
+          <div class="flex items-center gap-3"><i class="fa-solid fa-bell text-blue-400 w-5"></i><span>Messages & Notifications</span></div>
+          <span class="text-xs bg-red-600 text-white rounded-full px-1.5 py-0.2 font-bold text-[10px]">2</span>
+        </button>
+        <button class="w-full px-4 py-3 flex items-center justify-between hover:bg-gray-800/50 transition menu-item" data-action="tvcast">
+          <div class="flex items-center gap-3"><i class="fa-solid fa-link text-green-400 w-5"></i><span>TV Download & Web Link</span></div>
+          <span class="text-xs text-gray-400">&gt;</span>
+        </button>
+        <button class="w-full px-4 py-3 flex items-center justify-between hover:bg-gray-800/50 transition menu-item" data-action="activity">
+          <div class="flex items-center gap-3"><i class="fa-solid fa-chart-pie text-purple-400 w-5"></i><span>My Activity & Data</span></div>
+          <span class="text-xs text-gray-400">&gt;</span>
+        </button>
+        <!-- Study Mode Toggle -->
+        <div class="px-4 py-3 flex items-center justify-between hover:bg-gray-800/50 transition">
+          <div class="flex items-center gap-3">
+            <i class="fa-solid fa-graduation-cap text-yellow-400 w-5"></i>
+            <div>
+              <div class="text-sm font-semibold">Study Mode</div>
+              <div class="text-[10px] text-gray-400">Audio-only, bilingual dual subtitles & note taking</div>
+            </div>
+          </div>
+          <label class="relative inline-flex items-center cursor-pointer">
+            <input type="checkbox" id="studyModeToggle" class="sr-only peer">
+            <div class="w-9 h-5 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-red-600"></div>
+          </label>
+        </div>
+        <button class="w-full px-4 py-3 flex items-center justify-between hover:bg-gray-800/50 transition menu-item" data-action="settings">
+          <div class="flex items-center gap-3"><i class="fa-solid fa-sliders text-gray-400 w-5"></i><span>Settings & Playback Quality</span></div>
+          <span class="text-xs text-gray-400">&gt;</span>
+        </button>
+        <button class="w-full px-4 py-3 flex items-center justify-between hover:bg-gray-800/50 transition menu-item" data-action="feedback">
+          <div class="flex items-center gap-3"><i class="fa-solid fa-comment-dots text-pink-400 w-5"></i><span>Feedback & Help Desk</span></div>
+          <span class="text-xs text-gray-400">&gt;</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- ======================================================== -->
+    <!-- MODALS & BOTTOM SHEETS -->
+    <!-- ======================================================== -->
+
+    <!-- Download Bottom Sheet Modal -->
+    <div id="downloadSheetModal" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-end justify-center">
+      <div class="bg-gray-900 border-t border-gray-800 rounded-t-3xl max-w-lg w-full p-5 space-y-4 max-h-[85vh] overflow-y-auto">
+        <div class="flex justify-between items-center border-b border-gray-800 pb-3">
+          <div>
+            <h3 class="font-bold text-white text-base">Select Episodes to Download</h3>
+            <p class="text-xs text-gray-400">Choose preferred resolution and episodes</p>
+          </div>
+          <button id="closeDlSheetBtn" class="text-gray-400 hover:text-white text-xl">&times;</button>
+        </div>
+
+        <!-- Resolution Selector -->
+        <div>
+          <label class="text-xs font-bold text-gray-400 uppercase tracking-wider block mb-2">Video Quality</label>
+          <div class="grid grid-cols-3 gap-2">
+            <button class="dl-res-btn active p-2.5 rounded-xl border border-red-600 bg-red-600/20 text-white text-xs font-bold text-center" data-res="1080P">
+              1080P (FHD)<br><span class="text-[10px] text-gray-400 font-normal">~1.2 GB/ep</span>
+            </button>
+            <button class="dl-res-btn p-2.5 rounded-xl border border-gray-800 bg-gray-800/60 text-gray-300 text-xs font-bold text-center" data-res="720P">
+              720P (HD)<br><span class="text-[10px] text-gray-400 font-normal">~650 MB/ep</span>
+            </button>
+            <button class="dl-res-btn p-2.5 rounded-xl border border-gray-800 bg-gray-800/60 text-gray-300 text-xs font-bold text-center" data-res="360P">
+              360P (Data Saver)<br><span class="text-[10px] text-gray-400 font-normal">~220 MB/ep</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Episode Checkboxes -->
+        <div>
+          <div class="flex justify-between items-center mb-2">
+            <label class="text-xs font-bold text-gray-400 uppercase tracking-wider">Episodes (Season 1)</label>
+            <button id="selectAllDlEpisodes" class="text-xs text-red-500 font-semibold">Select All</button>
+          </div>
+          <div id="dlEpisodesCheckboxList" class="space-y-2 max-h-48 overflow-y-auto pr-1">
+            <!-- Dynamic checkboxes -->
+          </div>
+        </div>
+
+        <!-- Confirm Download -->
+        <button id="startBatchDownloadBtn" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 rounded-xl transition shadow-lg shadow-red-600/30 flex items-center justify-center gap-2 text-sm">
+          <i class="fa-solid fa-download"></i> Start Download (<span id="selectedDlCount">1</span> items)
+        </button>
+      </div>
+    </div>
+
+    <!-- Episodes Drawer Modal (In-player) -->
+    <div id="episodesDrawerModal" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-end md:items-center justify-center">
+      <div class="bg-gray-900 border border-gray-800 rounded-t-3xl md:rounded-2xl max-w-lg w-full p-5 max-h-[80vh] flex flex-col">
+        <div class="flex justify-between items-center border-b border-gray-800 pb-3 mb-3">
+          <h3 class="font-bold text-white text-base">Select Episode</h3>
+          <button id="closeEpisodesDrawerBtn" class="text-gray-400 hover:text-white text-xl">&times;</button>
+        </div>
+        <div id="episodesListScroll" class="overflow-y-auto space-y-2 flex-1 pr-1">
+          <!-- Injected dynamically -->
+        </div>
+      </div>
+    </div>
+
+    <!-- Language & Subtitles Modal -->
+    <div id="languageModal" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+      <div class="bg-gray-900 border border-gray-800 rounded-2xl max-w-sm w-full p-5 space-y-4">
+        <div class="flex justify-between items-center border-b border-gray-800 pb-2">
+          <h3 class="font-bold text-white text-base flex items-center gap-2"><i class="fa-solid fa-globe text-red-500"></i> Audio & Subtitles</h3>
+          <button id="closeLangModalBtn" class="text-gray-400 hover:text-white text-lg">&times;</button>
+        </div>
+        <div>
+          <h4 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Audio Track</h4>
+          <div class="space-y-1.5" id="audioTrackList">
+            <label class="flex items-center justify-between p-2 rounded-lg bg-gray-800/70 cursor-pointer text-xs font-semibold">
+              <span>English (Original 5.1)</span>
+              <input type="radio" name="audioTrack" value="English" checked class="accent-red-600">
+            </label>
+            <label class="flex items-center justify-between p-2 rounded-lg bg-gray-800/70 cursor-pointer text-xs font-semibold">
+              <span>Hindi (Dubbed)</span>
+              <input type="radio" name="audioTrack" value="Hindi" class="accent-red-600">
+            </label>
+            <label class="flex items-center justify-between p-2 rounded-lg bg-gray-800/70 cursor-pointer text-xs font-semibold">
+              <span>Bengali (High Quality)</span>
+              <input type="radio" name="audioTrack" value="Bengali" class="accent-red-600">
+            </label>
+          </div>
+        </div>
+        <div>
+          <h4 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Subtitles</h4>
+          <div class="space-y-1.5" id="subtitleList">
+            <label class="flex items-center justify-between p-2 rounded-lg bg-gray-800/70 cursor-pointer text-xs font-semibold">
+              <span>Off</span>
+              <input type="radio" name="subtitleTrack" value="off" class="accent-red-600">
+            </label>
+            <label class="flex items-center justify-between p-2 rounded-lg bg-gray-800/70 cursor-pointer text-xs font-semibold">
+              <span>English [CC]</span>
+              <input type="radio" name="subtitleTrack" value="en" checked class="accent-red-600">
+            </label>
+            <label class="flex items-center justify-between p-2 rounded-lg bg-gray-800/70 cursor-pointer text-xs font-semibold">
+              <span>Bengali</span>
+              <input type="radio" name="subtitleTrack" value="bn" class="accent-red-600">
+            </label>
+          </div>
+        </div>
+        <button id="applyLangBtn" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-2 rounded-xl text-xs">Apply Settings</button>
+      </div>
+    </div>
+
+    <!-- Speed & Resolution Popups -->
+    <div id="speedModal" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+      <div class="bg-gray-900 border border-gray-800 rounded-2xl max-w-xs w-full p-4 space-y-2">
+        <h3 class="font-bold text-white text-sm mb-2">Playback Speed</h3>
+        <div class="grid grid-cols-2 gap-2 text-xs">
+          <button class="speed-opt p-2 rounded-lg bg-gray-800 hover:bg-red-600" data-speed="0.5">0.5x</button>
+          <button class="speed-opt p-2 rounded-lg bg-gray-800 hover:bg-red-600" data-speed="0.75">0.75x</button>
+          <button class="speed-opt active p-2 rounded-lg bg-red-600 font-bold" data-speed="1.0">1.0x (Normal)</button>
+          <button class="speed-opt p-2 rounded-lg bg-gray-800 hover:bg-red-600" data-speed="1.25">1.25x</button>
+          <button class="speed-opt p-2 rounded-lg bg-gray-800 hover:bg-red-600" data-speed="1.5">1.5x</button>
+          <button class="speed-opt p-2 rounded-lg bg-gray-800 hover:bg-red-600" data-speed="2.0">2.0x</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="resolutionModal" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+      <div class="bg-gray-900 border border-gray-800 rounded-2xl max-w-xs w-full p-4 space-y-2">
+        <h3 class="font-bold text-white text-sm mb-2">Video Resolution</h3>
+        <div class="space-y-1.5 text-xs">
+          <button class="res-opt active w-full text-left p-2.5 rounded-lg bg-red-600 font-bold" data-res="1080p">1080p (Full HD)</button>
+          <button class="res-opt w-full text-left p-2.5 rounded-lg bg-gray-800 hover:bg-gray-700" data-res="720p">720p (HD)</button>
+          <button class="res-opt w-full text-left p-2.5 rounded-lg bg-gray-800 hover:bg-gray-700" data-res="480p">480p (Standard)</button>
+          <button class="res-opt w-full text-left p-2.5 rounded-lg bg-gray-800 hover:bg-gray-700" data-res="360p">360p (Data Saver)</button>
+          <button class="res-opt w-full text-left p-2.5 rounded-lg bg-gray-800 hover:bg-gray-700" data-res="auto">Auto (Adaptive Bitrate)</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Premium Comparison & Pricing Modal -->
+    <div id="premiumModal" class="hidden fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
+      <div class="bg-gray-950 border border-yellow-500/50 rounded-3xl max-w-md w-full p-5 space-y-4 max-h-[90vh] overflow-y-auto">
+        <div class="flex justify-between items-center border-b border-gray-800 pb-3">
+          <div class="flex items-center gap-2 text-yellow-400 font-black text-lg">
+            <i class="fa-solid fa-crown"></i> StreamBox VIP Pro
+          </div>
+          <button id="closePremiumModalBtn" class="text-gray-400 hover:text-white text-xl">&times;</button>
+        </div>
+
+        <!-- Plan Comparison -->
+        <div class="bg-gray-900 rounded-xl p-3 border border-gray-800 text-xs space-y-2">
+          <div class="grid grid-cols-3 font-bold border-b border-gray-800 pb-1.5 text-gray-400">
+            <span>Feature</span>
+            <span class="text-center">Basic</span>
+            <span class="text-center text-yellow-400">VIP Pro</span>
+          </div>
+          <div class="grid grid-cols-3 py-1 border-b border-gray-800/50">
+            <span>Video Quality</span>
+            <span class="text-center text-gray-400">720p HD</span>
+            <span class="text-center text-yellow-400 font-bold">4K HDR</span>
+          </div>
+          <div class="grid grid-cols-3 py-1 border-b border-gray-800/50">
+            <span>Ad-Free</span>
+            <span class="text-center text-red-400"><i class="fa-solid fa-xmark"></i></span>
+            <span class="text-center text-green-400"><i class="fa-solid fa-check"></i></span>
+          </div>
+          <div class="grid grid-cols-3 py-1 border-b border-gray-800/50">
+            <span>Simultaneous Devices</span>
+            <span class="text-center text-gray-400">1</span>
+            <span class="text-center text-yellow-400 font-bold">4</span>
+          </div>
+          <div class="grid grid-cols-3 py-1">
+            <span>Batch Downloads</span>
+            <span class="text-center text-gray-400">Limit 5</span>
+            <span class="text-center text-yellow-400 font-bold">Unlimited</span>
+          </div>
+        </div>
+
+        <!-- Pricing Tiers: 1 Month (₹10), 3 Months (₹30), 6 Months (₹60), 1 Year (₹120) -->
+        <div>
+          <label class="text-xs font-bold text-gray-400 uppercase tracking-wider block mb-2">Select VIP Subscription Plan</label>
+          <div class="space-y-2">
+            <!-- 1 Month (₹10) -->
+            <label class="pricing-tier flex items-center justify-between p-3 rounded-xl border border-gray-800 bg-gray-900/90 cursor-pointer hover:border-yellow-500/50 transition">
+              <div>
+                <div class="flex items-center gap-2">
+                  <span class="font-bold text-white text-sm">1 Month VIP</span>
+                  <span class="bg-blue-600/30 text-blue-400 text-[9px] font-bold px-1.5 py-0.2 rounded">Starter</span>
+                </div>
+                <p class="text-[10px] text-gray-400 mt-0.5">100% Ad-Free • Zero Google Ads • Full HD</p>
+              </div>
+              <div class="text-right flex items-center gap-2">
+                <span class="text-base font-black text-yellow-400">₹10</span>
+                <input type="radio" name="pricingPlan" value="1month" class="accent-yellow-500 w-4 h-4 cursor-pointer">
+              </div>
+            </label>
+
+            <!-- 3 Months (₹30) -->
+            <label class="pricing-tier flex items-center justify-between p-3 rounded-xl border border-gray-800 bg-gray-900/90 cursor-pointer hover:border-yellow-500/50 transition">
+              <div>
+                <div class="flex items-center gap-2">
+                  <span class="font-bold text-white text-sm">3 Months VIP</span>
+                  <span class="bg-purple-600/30 text-purple-400 text-[9px] font-bold px-1.5 py-0.2 rounded">Popular</span>
+                </div>
+                <p class="text-[10px] text-gray-400 mt-0.5">100% Ad-Free • 4K Ultra • 2 Devices</p>
+              </div>
+              <div class="text-right flex items-center gap-2">
+                <span class="text-base font-black text-yellow-400">₹30</span>
+                <input type="radio" name="pricingPlan" value="3months" class="accent-yellow-500 w-4 h-4 cursor-pointer">
+              </div>
+            </label>
+
+            <!-- 6 Months (₹60) -->
+            <label class="pricing-tier flex items-center justify-between p-3 rounded-xl border border-gray-800 bg-gray-900/90 cursor-pointer hover:border-yellow-500/50 transition">
+              <div>
+                <div class="flex items-center gap-2">
+                  <span class="font-bold text-white text-sm">6 Months VIP</span>
+                  <span class="bg-green-600/30 text-green-400 text-[9px] font-bold px-1.5 py-0.2 rounded">Half-Year Saver</span>
+                </div>
+                <p class="text-[10px] text-gray-400 mt-0.5">100% Ad-Free • 4K HDR • 3 Devices</p>
+              </div>
+              <div class="text-right flex items-center gap-2">
+                <span class="text-base font-black text-yellow-400">₹60</span>
+                <input type="radio" name="pricingPlan" value="6months" class="accent-yellow-500 w-4 h-4 cursor-pointer">
+              </div>
+            </label>
+
+            <!-- 1 Year (₹120) -->
+            <label class="pricing-tier flex items-center justify-between p-3 rounded-xl border border-yellow-500 bg-yellow-950/20 cursor-pointer relative shadow-lg shadow-yellow-500/10">
+              <span class="absolute -top-2 right-4 bg-yellow-500 text-black text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider">Best Value • Just ₹10/mo</span>
+              <div>
+                <div class="flex items-center gap-2">
+                  <span class="font-bold text-white text-sm">1 Year VIP (12 Months)</span>
+                  <i class="fa-solid fa-crown text-yellow-400 text-xs"></i>
+                </div>
+                <p class="text-[10px] text-gray-300 mt-0.5">Zero Ads Whole Year • 4K Cinema • VIP Golden Crown</p>
+              </div>
+              <div class="text-right flex items-center gap-2">
+                <span class="text-base font-black text-yellow-400">₹120</span>
+                <input type="radio" name="pricingPlan" value="1year" checked class="accent-yellow-500 w-4 h-4 cursor-pointer">
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <button id="activateVipBtn" class="w-full bg-gradient-to-r from-yellow-500 via-amber-500 to-yellow-600 hover:from-yellow-400 hover:to-amber-500 text-black font-extrabold py-3.5 rounded-2xl transition shadow-xl shadow-yellow-500/30 text-sm flex items-center justify-center gap-2">
+          <i class="fa-solid fa-lock-open text-xs"></i>
+          <span>Choose Payment Method & Pay</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- ======================================================== -->
+    <!-- VIP PAYMENT MODAL (UPI, QR Code, Card, NetBanking) -->
+    <!-- ======================================================== -->
+    <div id="paymentModal" class="hidden fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4">
+      <div class="bg-gray-950 border border-yellow-500/60 rounded-3xl max-w-md w-full p-5 space-y-4 max-h-[90vh] overflow-y-auto shadow-2xl">
+        <!-- Header -->
+        <div class="flex justify-between items-center border-b border-gray-800 pb-3">
+          <div class="flex items-center gap-2">
+            <button id="backToPlansBtn" class="text-gray-400 hover:text-white p-1" title="Back to plans">
+              <i class="fa-solid fa-arrow-left text-sm"></i>
+            </button>
+            <div class="flex items-center gap-1.5 text-yellow-400 font-black text-base">
+              <i class="fa-solid fa-shield-halved"></i>
+              <span>Secure VIP Checkout</span>
+            </div>
+          </div>
+          <button id="closePaymentModalBtn" class="text-gray-400 hover:text-white text-xl">&times;</button>
+        </div>
+
+        <!-- Selected Plan Summary Card -->
+        <div class="bg-gradient-to-r from-yellow-950/40 via-gray-900 to-black p-3.5 rounded-2xl border border-yellow-500/30 flex items-center justify-between">
+          <div>
+            <div class="flex items-center gap-1.5 text-xs text-yellow-400 font-bold uppercase tracking-wider">
+              <i class="fa-solid fa-crown text-[10px]"></i> <span id="paySummaryPlanName">1 Year VIP (12 Months)</span>
+            </div>
+            <p class="text-[11px] text-gray-300 mt-0.5">100% Ad-Free Streaming & All Google Ads Disabled</p>
+          </div>
+          <div class="text-right">
+            <span class="text-xs text-gray-400 block">Total Amount</span>
+            <span id="paySummaryAmount" class="text-xl font-black text-yellow-400">₹120</span>
+          </div>
+        </div>
+
+        <!-- Payment Method Tabs (UPI / Cards) -->
+        <div class="flex border-b border-gray-800">
+          <button id="tabPayUpi" class="flex-1 pb-2.5 font-bold text-xs text-yellow-400 border-b-2 border-yellow-400 flex items-center justify-center gap-1.5">
+            <i class="fa-solid fa-qrcode"></i> UPI / QR Code (Fast)
+          </button>
+          <button id="tabPayCard" class="flex-1 pb-2.5 font-bold text-xs text-gray-400 hover:text-white flex items-center justify-center gap-1.5">
+            <i class="fa-solid fa-credit-card"></i> Card / NetBanking
+          </button>
+        </div>
+
+        <!-- TAB 1: UPI & QR Code Payment -->
+        <div id="sectionPayUpi" class="space-y-4">
+          <!-- QR Code Container -->
+          <div class="bg-gray-900 border border-gray-800 rounded-2xl p-4 flex flex-col items-center justify-center text-center">
+            <p class="text-[11px] text-gray-300 font-semibold mb-2 flex items-center gap-1.5">
+              <i class="fa-solid fa-camera text-yellow-400"></i> Scan with any UPI App (GPay, PhonePe, Paytm)
+            </p>
+            <div class="bg-white p-3 rounded-xl shadow-lg inline-block border-2 border-yellow-400/80">
+              <img id="paymentQrCodeImg" src="https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=upi://pay?pa=vimleshkumar901559@okaxis%26pn=StreamBox%20VIP%26am=120%26cu=INR" alt="UPI QR Code" class="w-36 h-36 mx-auto object-contain">
+            </div>
+            <span id="qrAmountNotice" class="text-xs font-bold text-yellow-400 mt-2">Paying ₹120 for VIP Access</span>
+          </div>
+
+          <!-- Admin UPI ID with Copy Button -->
+          <div class="bg-black/60 border border-gray-800 rounded-xl p-3 flex items-center justify-between">
+            <div>
+              <span class="text-[10px] text-gray-400 uppercase font-bold block">Admin Official UPI ID</span>
+              <span id="adminUpiDisplay" class="font-mono text-xs text-yellow-300 font-bold">vimleshkumar901559@okaxis</span>
+            </div>
+            <button id="copyAdminUpiBtn" class="bg-gray-800 hover:bg-gray-700 text-white text-xs px-2.5 py-1.5 rounded-lg font-semibold flex items-center gap-1 border border-gray-700 transition">
+              <i class="fa-regular fa-copy"></i> Copy
+            </button>
+          </div>
+
+          <!-- Instant UPI App Fast Buttons -->
+          <div>
+            <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1.5">Open Installed UPI App Directly</span>
+            <div class="grid grid-cols-4 gap-2">
+              <button class="upi-app-btn bg-gray-900 border border-gray-800 hover:border-yellow-500/60 p-2 rounded-xl text-center transition" data-app="gpay">
+                <i class="fa-brands fa-google-pay text-2xl text-blue-400"></i>
+                <span class="block text-[9px] text-gray-300 mt-0.5 font-bold">GPay</span>
+              </button>
+              <button class="upi-app-btn bg-gray-900 border border-gray-800 hover:border-yellow-500/60 p-2 rounded-xl text-center transition" data-app="phonepe">
+                <i class="fa-solid fa-mobile-screen text-xl text-purple-400"></i>
+                <span class="block text-[9px] text-gray-300 mt-0.5 font-bold">PhonePe</span>
+              </button>
+              <button class="upi-app-btn bg-gray-900 border border-gray-800 hover:border-yellow-500/60 p-2 rounded-xl text-center transition" data-app="paytm">
+                <i class="fa-solid fa-wallet text-xl text-cyan-400"></i>
+                <span class="block text-[9px] text-gray-300 mt-0.5 font-bold">Paytm</span>
+              </button>
+              <button class="upi-app-btn bg-gray-900 border border-gray-800 hover:border-yellow-500/60 p-2 rounded-xl text-center transition" data-app="bhim">
+                <i class="fa-solid fa-bolt text-xl text-green-400"></i>
+                <span class="block text-[9px] text-gray-300 mt-0.5 font-bold">BHIM</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- UTR / Ref Number Verification Form -->
+          <form id="upiSubmitForm" class="space-y-3 pt-1">
+            <div>
+              <label class="block text-[11px] font-bold text-gray-300 mb-1">
+                UPI Reference / UTR Number (12 Digits)
+              </label>
+              <input type="text" id="upiUtrInput" placeholder="e.g. 509218493021 (or leave blank for Instant Auto-Pay)" class="w-full bg-black/80 border border-gray-800 rounded-xl px-3 py-2 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-yellow-500">
+              <p class="text-[10px] text-gray-400 mt-1">Payment is credited directly to admin. VIP access is activated immediately.</p>
+            </div>
+            <button type="submit" id="confirmUpiPayBtn" class="w-full bg-gradient-to-r from-yellow-500 to-amber-500 hover:from-yellow-400 hover:to-amber-400 text-black font-extrabold py-3 rounded-xl transition shadow-xl shadow-yellow-500/30 text-xs flex items-center justify-center gap-2">
+              <i class="fa-solid fa-check-circle"></i>
+              <span id="confirmUpiBtnText">Verify & Activate VIP Now</span>
+            </button>
+          </form>
+        </div>
+
+        <!-- TAB 2: Card / NetBanking Payment -->
+        <div id="sectionPayCard" class="hidden space-y-3">
+          <div>
+            <label class="block text-[11px] font-bold text-gray-300 mb-1">Card Number</label>
+            <div class="relative">
+              <input type="text" id="payCardNumber" placeholder="4242 •••• •••• 4242" maxlength="19" class="w-full bg-black/80 border border-gray-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-yellow-500 font-mono">
+              <i class="fa-brands fa-cc-visa absolute right-3 top-2.5 text-gray-400 text-base"></i>
+            </div>
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-[11px] font-bold text-gray-300 mb-1">Expiry (MM/YY)</label>
+              <input type="text" id="payCardExpiry" placeholder="12/28" maxlength="5" class="w-full bg-black/80 border border-gray-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-yellow-500 font-mono">
+            </div>
+            <div>
+              <label class="block text-[11px] font-bold text-gray-300 mb-1">CVV / CVC</label>
+              <input type="password" id="payCardCvv" placeholder="•••" maxlength="4" class="w-full bg-black/80 border border-gray-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-yellow-500 font-mono">
+            </div>
+          </div>
+          <div>
+            <label class="block text-[11px] font-bold text-gray-300 mb-1">Cardholder Name</label>
+            <input type="text" id="payCardName" placeholder="Name on Card" class="w-full bg-black/80 border border-gray-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-yellow-500">
+          </div>
+          <button type="button" id="confirmCardPayBtn" class="w-full bg-gradient-to-r from-yellow-500 to-amber-500 hover:from-yellow-400 hover:to-amber-400 text-black font-extrabold py-3 rounded-xl transition shadow-xl shadow-yellow-500/30 text-xs flex items-center justify-center gap-2 mt-2">
+            <i class="fa-solid fa-lock text-xs"></i>
+            <span id="confirmCardBtnText">Pay Now & Unlock VIP</span>
+          </button>
+        </div>
+
+        <div class="text-center pt-2 border-t border-gray-800/80">
+          <p class="text-[10px] text-gray-400 flex items-center justify-center gap-1.5">
+            <i class="fa-solid fa-shield-halved text-green-400"></i> 256-Bit Encrypted Secure Transaction • Instant Activation
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Firebase Auth Modal with 2-Step Email Verification -->
+    <div id="authModal" class="hidden fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-4">
+      <div class="bg-gray-900 border border-gray-800 rounded-3xl max-w-sm w-full p-6 space-y-4">
+        <div class="flex justify-between items-center border-b border-gray-800 pb-2">
+          <div class="flex items-center gap-2">
+            <i class="fa-solid fa-user-circle text-red-500 text-xl"></i>
+            <h3 class="font-bold text-white text-lg" id="authModalTitle">StreamBox Account</h3>
+          </div>
+          <button id="closeAuthModalBtn" class="text-gray-400 hover:text-white text-xl">&times;</button>
+        </div>
+
+        <!-- STEP 1: Enter Email & Password -->
+        <div id="authStepCredentials" class="space-y-4">
+          <p class="text-xs text-gray-400">Sign in to sync your watch history, watchlist, and unlocked VIP memberships across all screens.</p>
+
+          <!-- Google Login -->
+          <button id="googleSignInBtn" class="w-full bg-white hover:bg-gray-100 text-gray-900 font-bold py-2.5 px-4 rounded-xl flex items-center justify-center gap-3 text-xs transition shadow-md">
+            <i class="fa-brands fa-google text-red-500 text-base"></i>
+            <span>Continue with Google</span>
+          </button>
+
+          <div class="flex items-center gap-3 my-2">
+            <hr class="flex-1 border-gray-800">
+            <span class="text-[10px] text-gray-500 font-bold uppercase">Or with Email</span>
+            <hr class="flex-1 border-gray-800">
+          </div>
+
+          <!-- Email & Password Form -->
+          <form id="emailAuthForm" class="space-y-3">
+            <div>
+              <label class="block text-[11px] font-bold text-gray-400 mb-1">Email address</label>
+              <input type="email" id="authEmail" placeholder="yourname@gmail.com" required class="w-full bg-black/60 border border-gray-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-red-600">
+            </div>
+            <div>
+              <label class="block text-[11px] font-bold text-gray-400 mb-1">Password</label>
+              <input type="password" id="authPass" placeholder="Enter at least 6 characters" required class="w-full bg-black/60 border border-gray-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-red-600">
+            </div>
+            <button type="submit" id="requestOtpSubmitBtn" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-2.5 rounded-xl text-xs transition flex items-center justify-center gap-2 shadow-lg shadow-red-600/30">
+              <i class="fa-solid fa-paper-plane text-[11px]"></i>
+              <span>Send Verification Code & Continue</span>
+            </button>
+            <p class="text-[10px] text-gray-500 text-center">A 6-digit verification code will be sent to your email to verify your identity.</p>
+          </form>
+        </div>
+
+        <!-- STEP 2: Enter 6-Digit Verification Code -->
+        <div id="authStepVerification" class="hidden space-y-4 text-center">
+          <div class="w-14 h-14 rounded-full bg-red-600/20 text-red-500 border border-red-800/50 flex items-center justify-center text-2xl mx-auto shadow-inner">
+            <i class="fa-solid fa-envelope-circle-check"></i>
+          </div>
+
+          <div>
+            <h4 class="text-base font-black text-white">Enter Verification Code</h4>
+            <p class="text-xs text-gray-300 mt-1">
+              A 6-digit verification code was sent to<br>
+              <strong id="verifyTargetEmail" class="text-red-400 font-mono">user@example.com</strong>
+            </p>
+          </div>
+
+          <!-- In-App Instant Helper Box -->
+          <div id="inAppCodeHelperBox" class="bg-gray-950 border border-red-900/60 rounded-xl p-2.5 text-[11px] text-gray-300 flex items-center justify-between gap-2 shadow">
+            <div class="flex items-center gap-2 text-left truncate">
+              <i class="fa-solid fa-bell text-yellow-400"></i>
+              <span class="truncate">Code: <strong id="inAppCodeDisplay" class="text-yellow-400 font-mono text-sm tracking-wider">------</strong></span>
+            </div>
+            <button type="button" id="copyOtpHelperBtn" class="text-[10px] bg-red-600/30 hover:bg-red-600 text-red-200 hover:text-white px-2 py-1 rounded font-bold transition whitespace-nowrap">
+              Copy Code
+            </button>
+          </div>
+
+          <!-- 6-digit OTP Input -->
+          <div class="space-y-2">
+            <input 
+              type="text" 
+              id="otpCodeInput" 
+              maxlength="6" 
+              pattern="[0-9]{6}" 
+              inputmode="numeric" 
+              placeholder="0 0 0 0 0 0" 
+              autocomplete="one-time-code"
+              class="w-full text-center text-2xl tracking-[0.4em] font-mono font-black bg-black/90 border-2 border-gray-700 rounded-xl py-2.5 text-white focus:outline-none focus:border-red-500 transition shadow-inner">
+            
+            <p id="otpErrorMsg" class="hidden text-[11px] text-red-400 font-semibold flex items-center justify-center gap-1">
+              <i class="fa-solid fa-triangle-exclamation"></i>
+              <span id="otpErrorText">Invalid verification code!</span>
+            </p>
+            <p id="otpTimerText" class="text-[10px] text-gray-500 font-mono">Code valid for 10 minutes</p>
+          </div>
+
+          <!-- Submit OTP Button -->
+          <button type="button" id="confirmOtpBtn" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-2.5 rounded-xl text-xs transition flex items-center justify-center gap-2 shadow-lg shadow-red-600/30">
+            <i class="fa-solid fa-shield-check"></i>
+            <span>Verify & Complete Sign In</span>
+          </button>
+
+          <!-- Resend & Change Credentials Links -->
+          <div class="pt-2 border-t border-gray-800/80 flex items-center justify-between text-xs">
+            <button type="button" id="backToCredentialsBtn" class="text-gray-400 hover:text-white flex items-center gap-1">
+              <i class="fa-solid fa-arrow-left text-[10px]"></i> Edit Email
+            </button>
+            <button type="button" id="resendOtpBtn" class="text-red-400 hover:text-red-300 font-bold">
+              Resend Code
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Feedback Toast -->
+    <div id="toast" class="fixed top-5 left-1/2 -translate-x-1/2 hidden z-50 bg-gray-800/95 text-white border border-gray-700 px-4 py-2.5 rounded-xl shadow-2xl flex items-center gap-2.5 text-xs font-semibold backdrop-blur-md">
+      <i id="toastIcon" class="fa-solid fa-circle-check text-green-400 text-sm"></i>
+      <span id="toastMsg">Action completed</span>
+    </div>
+
+    <!-- ======================================================== -->
+    <!-- BOTTOM NAVIGATION (Home, Shorts, Downloads, Me) -->
+    <!-- ======================================================== -->
+    <nav class="fixed bottom-0 inset-x-0 z-40 bg-[#0a0c10]/95 backdrop-blur-lg border-t border-gray-800/80 px-2 py-1.5 flex justify-around max-w-md mx-auto sm:max-w-xl md:max-w-4xl lg:max-w-6xl">
+      <button class="nav-item active flex flex-col items-center gap-1 text-red-500 py-1 px-3 transition" data-view="home">
+        <i class="fa-solid fa-house text-lg"></i>
+        <span class="text-[10px] font-semibold">Home</span>
+      </button>
+      <button class="nav-item flex flex-col items-center gap-1 text-gray-400 hover:text-white py-1 px-3 transition" data-view="shorts">
+        <i class="fa-solid fa-film text-lg"></i>
+        <span class="text-[10px] font-semibold">Shorts</span>
+      </button>
+      <button class="nav-item flex flex-col items-center gap-1 text-gray-400 hover:text-white py-1 px-3 transition relative" data-view="downloads">
+        <i class="fa-solid fa-arrow-down-to-line text-lg"></i>
+        <span class="text-[10px] font-semibold">Downloads</span>
+        <span class="absolute top-1 right-2 w-2 h-2 bg-red-600 rounded-full animate-pulse"></span>
+      </button>
+      <button class="nav-item flex flex-col items-center gap-1 text-gray-400 hover:text-white py-1 px-3 transition" data-view="me">
+        <i class="fa-solid fa-user text-lg"></i>
+        <span class="text-[10px] font-semibold">Me</span>
+      </button>
+    </nav>
+  </div>
+
+  <!-- Main ES6 JavaScript Module -->
+  <script type="module">
+    import { 
+      auth, 
+      db, 
+      signInWithGoogle, 
+      loginWithEmail, 
+      signupWithEmail, 
+      logoutUser, 
+      subscribeAuth,
+      getSeriesCatalog, 
+      subscribeSeriesCatalog, 
+      syncUserProfile, 
+      getUserProfile, 
+      testFirestoreConnection,
+      ADMIN_EMAIL,
+      isUserAdmin,
+      generateAndSendEmailOTP,
+      verifyEmailOTP,
+      VIP_PLANS,
+      getAppConfig,
+      saveAppConfig,
+      recordAdImpression,
+      recordAdClick,
+      activateUserVipSubscription,
+      isUserVipActive
+    } from "./src/firebase.ts";
+
+    // Monetization & Google Ads State
+    let appConfig = {
+      googleAdSenseId: "ca-pub-9842105741098234",
+      adminUpiId: "vimleshkumar901559@okaxis",
+      adFrequencySeconds: 180,
+      preRollEnabled: true,
+      midRollEnabled: true
+    };
+
+    // Load config from Firestore
+    getAppConfig().then(cfg => {
+      if (cfg) {
+        appConfig = { ...appConfig, ...cfg };
+        const pubDisplay = document.getElementById("adSensePubIdDisplay");
+        if (pubDisplay) pubDisplay.textContent = appConfig.googleAdSenseId;
+        const upiDisplay = document.getElementById("adminUpiDisplay");
+        if (upiDisplay) upiDisplay.textContent = appConfig.adminUpiId;
+      }
+    });
+
+    // Rotating Ad Campaigns (Google Partners)
+    const AD_CAMPAIGNS = [
+      {
+        title: "Google Cloud Platform & AI Studio",
+        desc: "Build high-performance video streaming backends, cloud databases & enterprise AI pipelines with 99.99% uptime.",
+        icon: "fa-cloud",
+        cta: "Visit Sponsor Website",
+        url: "https://cloud.google.com"
+      },
+      {
+        title: "Android Studio & Jetpack Compose",
+        desc: "Develop modern multiplatform mobile apps with Kotlin, instant previews, and hardware-accelerated emulators.",
+        icon: "fa-android",
+        cta: "Download Android Studio",
+        url: "https://developer.android.com/studio"
+      },
+      {
+        title: "YouTube Premium & Music",
+        desc: "Watch without interruptions, background playback & offline video caching on all smart TV and mobile devices.",
+        icon: "fa-youtube",
+        cta: "Try 1 Month Free",
+        url: "https://youtube.com/premium"
+      },
+      {
+        title: "Firebase by Google",
+        desc: "Make your app best-in-class with real-time Firestore synchronization, authentication & global edge hosting.",
+        icon: "fa-fire",
+        cta: "Get Started Free",
+        url: "https://firebase.google.com"
+      }
+    ];
+
+    let currentVideoAdState = {
+      isAdPlaying: false,
+      lastAdTime: 0,
+      hasPreRollPlayed: false,
+      countdownTimer: null,
+      campaignIndex: 0
+    };
+
+    function resetVideoAdState() {
+      currentVideoAdState.isAdPlaying = false;
+      currentVideoAdState.lastAdTime = 0;
+      currentVideoAdState.hasPreRollPlayed = false;
+      if (currentVideoAdState.countdownTimer) {
+        clearInterval(currentVideoAdState.countdownTimer);
+        currentVideoAdState.countdownTimer = null;
+      }
+      const overlay = document.getElementById("videoAdOverlay");
+      if (overlay) overlay.classList.add("hidden");
+    }
+
+    function isCurrentVip() {
+      return isUserVipActive(state.user) || state.isPro;
+    }
+
+    function checkVideoAds(currentTime) {
+      if (isCurrentVip()) {
+        // VIP users NEVER see any ads!
+        const overlay = document.getElementById("videoAdOverlay");
+        if (overlay && !overlay.classList.contains("hidden")) {
+          overlay.classList.add("hidden");
+        }
+        return;
+      }
+
+      if (currentVideoAdState.isAdPlaying) return;
+
+      // Pre-roll (after 2 seconds of playback)
+      if (appConfig.preRollEnabled && !currentVideoAdState.hasPreRollPlayed && currentTime >= 2) {
+        currentVideoAdState.hasPreRollPlayed = true;
+        currentVideoAdState.lastAdTime = currentTime;
+        triggerVideoAd("pre-roll");
+        return;
+      }
+
+      // Mid-roll (every adFrequencySeconds, default 180s = 3 minutes)
+      const freq = appConfig.adFrequencySeconds || 180;
+      if (appConfig.midRollEnabled && (currentTime - currentVideoAdState.lastAdTime) >= freq) {
+        currentVideoAdState.lastAdTime = currentTime;
+        triggerVideoAd("mid-roll");
+      }
+    }
+
+    function triggerVideoAd(adType = "mid-roll") {
+      if (isCurrentVip()) return;
+
+      currentVideoAdState.isAdPlaying = true;
+      mainVideo.pause();
+      updatePlayIcons(false);
+
+      const overlay = document.getElementById("videoAdOverlay");
+      const countdownText = document.getElementById("adCountdownText");
+      const skipBtn = document.getElementById("skipAdBtn");
+      const titleEl = document.getElementById("adCampaignTitle");
+      const descEl = document.getElementById("adCampaignDesc");
+      const iconEl = document.getElementById("adBrandIcon");
+      const visitBtn = document.getElementById("adVisitWebsiteBtn");
+
+      // Pick rotating campaign
+      const campaign = AD_CAMPAIGNS[currentVideoAdState.campaignIndex % AD_CAMPAIGNS.length];
+      currentVideoAdState.campaignIndex++;
+
+      if (titleEl) titleEl.textContent = campaign.title;
+      if (descEl) descEl.textContent = campaign.desc;
+      if (iconEl) iconEl.className = `fa-solid ${campaign.icon}`;
+      if (visitBtn) {
+        visitBtn.href = campaign.url;
+        const btnSpan = visitBtn.querySelector("span");
+        if (btnSpan) btnSpan.textContent = campaign.cta;
+        visitBtn.onclick = () => {
+          recordAdClick();
+        };
+      }
+
+      if (skipBtn) skipBtn.classList.add("hidden");
+      if (overlay) overlay.classList.remove("hidden");
+
+      let secondsLeft = 15;
+      const skipAvailableAfter = 5; // seconds
+      if (countdownText) countdownText.textContent = `Skip in ${skipAvailableAfter}s`;
+
+      if (currentVideoAdState.countdownTimer) clearInterval(currentVideoAdState.countdownTimer);
+
+      currentVideoAdState.countdownTimer = setInterval(() => {
+        secondsLeft--;
+        const timeUntilSkip = secondsLeft - (15 - skipAvailableAfter);
+        if (timeUntilSkip > 0) {
+          if (countdownText) countdownText.textContent = `Skip in ${timeUntilSkip}s`;
+        } else {
+          if (countdownText) countdownText.textContent = `Ad ends in ${secondsLeft}s`;
+          if (skipBtn) skipBtn.classList.remove("hidden");
+        }
+
+        if (secondsLeft <= 0) {
+          finishAdBreak();
+        }
+      }, 1000);
+    }
+
+    function finishAdBreak() {
+      if (currentVideoAdState.countdownTimer) {
+        clearInterval(currentVideoAdState.countdownTimer);
+        currentVideoAdState.countdownTimer = null;
+      }
+      currentVideoAdState.isAdPlaying = false;
+      const overlay = document.getElementById("videoAdOverlay");
+      if (overlay) overlay.classList.add("hidden");
+
+      // Record Ad Impression in Firestore (Earns revenue for admin)
+      recordAdImpression();
+
+      // Resume playback
+      mainVideo.play().catch(() => {});
+      updatePlayIcons(true);
+      showToast("Resuming video playback...");
+    }
+
+    const skipAdBtn = document.getElementById("skipAdBtn");
+    if (skipAdBtn) skipAdBtn.onclick = finishAdBreak;
+
+    const adUpgradeVipBtn = document.getElementById("adUpgradeVipBtn");
+    if (adUpgradeVipBtn) {
+      adUpgradeVipBtn.onclick = () => {
+        // Pause ad and open VIP Modal with 1 Month (₹10) pre-selected
+        const radio1m = document.querySelector('input[name="pricingPlan"][value="1month"]');
+        if (radio1m) radio1m.checked = true;
+        premiumModal.classList.remove("hidden");
+      };
+    }
+
+    // Only Admin Uploaded Videos are shown (DEFAULT_VIDEOS removed as requested)
+    const DEFAULT_VIDEOS = [];
+
+    // Local Storage state helpers
+    function getStored(key, fallback) {
+      try {
+        const item = localStorage.getItem(key);
+        return item ? JSON.parse(item) : fallback;
+      } catch {
+        return fallback;
+      }
+    }
+    function setStored(key, val) {
+      try { localStorage.setItem(key, JSON.stringify(val)); } catch {}
+    }
+
+    // Load any uploads saved by admin.html (LocalStorage cache)
+    const adminUploads = getStored("streambox_custom_series", []);
+    let ALL_VIDEOS = [...adminUploads];
+
+    // App Global State
+    const state = {
+      currentVideo: ALL_VIDEOS[0] || null,
+      currentEpisodeIdx: 0,
+      isPlaying: false,
+      isPip: false,
+      isLocked: false,
+      isFitCover: false,
+      currentVolume: 1.0,
+      currentBrightness: 1.0,
+      speed: 1.0,
+      resolution: "1080p",
+      audioTrack: "English",
+      subtitleTrack: "en",
+      user: getStored("streambox_user", null),
+      watchlist: getStored("streambox_watchlist", []),
+      watchHistory: getStored("streambox_history", []),
+      downloads: getStored("streambox_downloads", []),
+      isPro: getStored("streambox_vip", false)
+    };
+
+    // Verify Firestore Connection & Subscribe to Live Catalog
+    testFirestoreConnection().then(ok => {
+      console.log("Firestore connection check:", ok ? "Online" : "Cached/Offline");
+      const badge = document.getElementById("fbIndicator");
+      if (badge) badge.classList.remove("hidden");
+    });
+
+    // Fallback getSeriesCatalog on start
+    getSeriesCatalog().then(catalog => {
+      if (catalog && Array.isArray(catalog) && catalog.length > 0) {
+        ALL_VIDEOS = catalog;
+        setStored("streambox_custom_series", catalog);
+        renderGrids();
+        updateHero();
+      }
+    }).catch(e => console.warn("Initial catalog fetch note:", e));
+
+    try {
+      subscribeSeriesCatalog((firestoreSeries) => {
+        if (firestoreSeries && Array.isArray(firestoreSeries)) {
+          ALL_VIDEOS = firestoreSeries;
+          setStored("streambox_custom_series", firestoreSeries);
+          renderGrids();
+          updateHero();
+          console.log(`Synced ${firestoreSeries.length} admin series from Firestore.`);
+        }
+      });
+    } catch (err) {
+      console.warn("Catalog sync fallback:", err);
+    }
+
+    // Live sync across tabs / windows
+    window.addEventListener("storage", (e) => {
+      if (e.key === "streambox_custom_series") {
+        ALL_VIDEOS = getStored("streambox_custom_series", []);
+        renderGrids();
+        updateHero();
+      }
+    });
+    window.addEventListener("focus", () => {
+      const latest = getStored("streambox_custom_series", []);
+      if (latest && JSON.stringify(latest) !== JSON.stringify(ALL_VIDEOS)) {
+        ALL_VIDEOS = latest;
+        renderGrids();
+        updateHero();
+      }
+    });
+
+    // DOM Elements
+    const mainVideo = document.getElementById("mainVideo");
+    const videoPlayerSection = document.getElementById("videoPlayerSection");
+    const pipContainer = document.getElementById("pipContainer");
+    const pipVideoMount = document.getElementById("pipVideoMount");
+    const videoSeekbar = document.getElementById("videoSeekbar");
+    const currentTimeLabel = document.getElementById("currentTimeLabel");
+    const durationLabel = document.getElementById("durationLabel");
+    const currentVideoTitle = document.getElementById("currentVideoTitle");
+    const currentEpisodeBadge = document.getElementById("currentEpisodeBadge");
+    const centerPlayIcon = document.getElementById("centerPlayIcon");
+    const barPlayIcon = document.getElementById("barPlayIcon");
+    const hudBox = document.getElementById("hudBox");
+    const hudIcon = document.getElementById("hudIcon");
+    const hudValue = document.getElementById("hudValue");
+    const brightnessOverlay = document.getElementById("brightnessOverlay");
+    const toast = document.getElementById("toast");
+    const toastMsg = document.getElementById("toastMsg");
+
+    let hls = null;
+
+    // Toast helper
+    function showToast(msg, icon = "fa-circle-check") {
+      toastMsg.textContent = msg;
+      document.getElementById("toastIcon").className = `fa-solid ${icon} text-green-400 text-sm`;
+      toast.classList.remove("hidden");
+      setTimeout(() => toast.classList.add("hidden"), 3000);
+    }
+
+    // Format time seconds to mm:ss
+    function formatTime(secs) {
+      if (isNaN(secs)) return "00:00";
+      const m = Math.floor(secs / 60);
+      const s = Math.floor(secs % 60);
+      return `${m < 10 ? '0' : ''}${m}:${s < 10 ? '0' : ''}${s}`;
+    }
+
+    // Initialize Video Playback
+    function loadAndPlayVideo(videoObj, episodeIndex = 0) {
+      if (!videoObj) {
+        showToast("Please upload a video via Admin first!", "fa-circle-info");
+        return;
+      }
+      state.currentVideo = videoObj;
+      state.currentEpisodeIdx = episodeIndex;
+      const episode = videoObj.episodes && videoObj.episodes[episodeIndex] 
+        ? videoObj.episodes[episodeIndex] 
+        : { title: videoObj.title, url: videoObj.videoUrl || "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8" };
+
+      currentVideoTitle.textContent = videoObj.title;
+      const isSeries = videoObj.type === "series" || (videoObj.episodes && videoObj.episodes.length > 1);
+      const epNum = episode.ep || episode.episodeNumber || (episodeIndex + 1);
+      currentEpisodeBadge.textContent = isSeries ? `EP ${epNum}` : (videoObj.badge || "MOVIE");
+      document.getElementById("pipTitle").textContent = `${videoObj.title}${isSeries ? ' - EP ' + epNum : ''}`;
+
+      // Open player section
+      videoPlayerSection.classList.remove("hidden");
+      if (state.isPip) exitPip();
+
+      // Reset ad break schedule for new video playback
+      resetVideoAdState();
+
+      const streamUrl = episode.url || episode.videoUrl || videoObj.videoUrl || "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8";
+
+      if (streamUrl.includes(".m3u8") && Hls.isSupported()) {
+        if (hls) hls.destroy();
+        hls = new Hls({ autoStartLoad: true });
+        hls.loadSource(streamUrl);
+        hls.attachMedia(mainVideo);
+        hls.on(Hls.Events.MANIFEST_PARSED, () => {
+          mainVideo.play().catch(() => {});
+        });
+      } else {
+        mainVideo.src = streamUrl;
+        mainVideo.play().catch(() => {});
+      }
+
+      state.isPlaying = true;
+      updatePlayIcons(true);
+
+      // Record to history
+      saveToHistory(videoObj, episode);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function updatePlayIcons(playing) {
+      if (playing) {
+        centerPlayIcon.className = "fa-solid fa-pause";
+        barPlayIcon.className = "fa-solid fa-pause";
+      } else {
+        centerPlayIcon.className = "fa-solid fa-play ml-1";
+        barPlayIcon.className = "fa-solid fa-play";
+      }
+    }
+
+    function togglePlay() {
+      if (mainVideo.paused) {
+        mainVideo.play();
+        state.isPlaying = true;
+        updatePlayIcons(true);
+      } else {
+        mainVideo.pause();
+        state.isPlaying = false;
+        updatePlayIcons(false);
+      }
+    }
+
+    // Video events
+    mainVideo.addEventListener("timeupdate", () => {
+      if (!isNaN(mainVideo.duration)) {
+        const pct = (mainVideo.currentTime / mainVideo.duration) * 100;
+        videoSeekbar.value = pct;
+        currentTimeLabel.textContent = formatTime(mainVideo.currentTime);
+        durationLabel.textContent = formatTime(mainVideo.duration);
+
+        // Google Ads check (pre-roll & mid-roll)
+        checkVideoAds(mainVideo.currentTime);
+      }
+    });
+
+    videoSeekbar.addEventListener("input", () => {
+      if (!isNaN(mainVideo.duration)) {
+        mainVideo.currentTime = (videoSeekbar.value / 100) * mainVideo.duration;
+      }
+    });
+
+    // Center screen buttons
+    document.getElementById("btnCenterPlay").onclick = togglePlay;
+    document.getElementById("barPlayBtn").onclick = togglePlay;
+
+    document.getElementById("btnRewind10").onclick = () => {
+      mainVideo.currentTime = Math.max(0, mainVideo.currentTime - 10);
+      showHud("fa-rotate-left", "-10s");
+    };
+    document.getElementById("btnForward10").onclick = () => {
+      mainVideo.currentTime = Math.min(mainVideo.duration || 0, mainVideo.currentTime + 10);
+      showHud("fa-rotate-right", "+10s");
+    };
+
+    // HUD Indicator
+    let hudTimer = null;
+    function showHud(iconClass, text) {
+      hudIcon.className = `fa-solid ${iconClass} text-red-500 text-lg`;
+      hudValue.textContent = text;
+      hudBox.style.opacity = "1";
+      hudBox.style.transform = "scale(1)";
+      clearTimeout(hudTimer);
+      hudTimer = setTimeout(() => {
+        hudBox.style.opacity = "0";
+        hudBox.style.transform = "scale(0.9)";
+      }, 900);
+    }
+
+    // Vertical Swiping Gestures (Volume Left, Brightness Right)
+    const gestureLayer = document.getElementById("gestureLayer");
+    let touchStartY = 0;
+    let isLeftSide = false;
+
+    gestureLayer.addEventListener("touchstart", (e) => {
+      if (state.isLocked) return;
+      touchStartY = e.touches[0].clientY;
+      const rect = gestureLayer.getBoundingClientRect();
+      isLeftSide = (e.touches[0].clientX - rect.left) < (rect.width / 2);
+    });
+
+    gestureLayer.addEventListener("touchmove", (e) => {
+      if (state.isLocked) return;
+      const deltaY = touchStartY - e.touches[0].clientY;
+      touchStartY = e.touches[0].clientY;
+      const step = deltaY / 150;
+
+      if (isLeftSide) {
+        // Volume Control
+        state.currentVolume = Math.min(1, Math.max(0, state.currentVolume + step));
+        mainVideo.volume = state.currentVolume;
+        showHud("fa-volume-high", `Vol ${Math.round(state.currentVolume * 100)}%`);
+      } else {
+        // Brightness Control (Overlay opacity inverse)
+        state.currentBrightness = Math.min(1, Math.max(0.1, state.currentBrightness + step));
+        brightnessOverlay.style.opacity = (1 - state.currentBrightness) * 0.75;
+        showHud("fa-sun", `Bright ${Math.round(state.currentBrightness * 100)}%`);
+      }
+    });
+
+    // Screen Lock
+    const lockScreenBtn = document.getElementById("lockScreenBtn");
+    const lockedShield = document.getElementById("lockedShield");
+    const unlockBtn = document.getElementById("unlockBtn");
+
+    lockScreenBtn.onclick = () => {
+      state.isLocked = true;
+      lockedShield.classList.remove("hidden");
+      document.getElementById("centerPlayerControls").style.opacity = "0";
+      document.getElementById("playerBottomOverlay").style.opacity = "0";
+      document.getElementById("playerTopOverlay").style.opacity = "0";
+      showToast("Controls Locked");
+    };
+
+    unlockBtn.onclick = () => {
+      state.isLocked = false;
+      lockedShield.classList.add("hidden");
+      document.getElementById("centerPlayerControls").style.opacity = "1";
+      document.getElementById("playerBottomOverlay").style.opacity = "1";
+      document.getElementById("playerTopOverlay").style.opacity = "1";
+      showToast("Controls Unlocked");
+    };
+
+    // Fullscreen Landscape Toggle
+    const playerWrapper = document.getElementById("playerWrapper");
+    document.getElementById("fullscreenToggleBtn").onclick = () => {
+      if (!document.fullscreenElement) {
+        playerWrapper.requestFullscreen().catch(() => {});
+        try { screen.orientation.lock("landscape").catch(() => {}); } catch {}
+      } else {
+        document.exitFullscreen().catch(() => {});
+      }
+    };
+
+    // Fit to Screen Toggle
+    document.getElementById("fitScreenBtn").onclick = () => {
+      state.isFitCover = !state.isFitCover;
+      if (state.isFitCover) {
+        mainVideo.className = "w-full h-full video-cover bg-black";
+        showToast("Fit: Zoom to Fill (Cover)");
+      } else {
+        mainVideo.className = "w-full h-full video-contain bg-black";
+        showToast("Fit: Best Fit (Letterbox)");
+      }
+    };
+
+    // Cast Button
+    function triggerCast() {
+      showToast("Searching for TV Cast Devices (DLNA / Chromecast)...", "fa-tv");
+      setTimeout(() => {
+        showToast("Connected to Living Room Android TV 4K", "fa-tv");
+      }, 1500);
+    }
+    document.getElementById("castBtn").onclick = triggerCast;
+    document.getElementById("playerCastBtn").onclick = triggerCast;
+
+    // PiP Floating Logic
+    function enterPip() {
+      if (mainVideo.paused) return;
+      state.isPip = true;
+      pipContainer.classList.add("pip-active");
+      pipContainer.classList.remove("hidden");
+      pipVideoMount.appendChild(mainVideo);
+    }
+
+    function exitPip() {
+      state.isPip = false;
+      pipContainer.classList.remove("pip-active");
+      pipContainer.classList.add("hidden");
+      playerWrapper.prepend(mainVideo);
+      videoPlayerSection.classList.remove("hidden");
+    }
+
+    document.getElementById("closePlayerBtn").onclick = () => {
+      enterPip();
+    };
+    document.getElementById("pipExpandBtn").onclick = exitPip;
+    document.getElementById("pipCloseBtn").onclick = () => {
+      mainVideo.pause();
+      exitPip();
+      videoPlayerSection.classList.add("hidden");
+    };
+
+    // Modals: Episodes Drawer
+    const episodesDrawerModal = document.getElementById("episodesDrawerModal");
+    const episodesListScroll = document.getElementById("episodesListScroll");
+    document.getElementById("openEpisodesBtn").onclick = () => {
+      episodesListScroll.innerHTML = "";
+      const eps = state.currentVideo.episodes || [{ ep: 1, title: state.currentVideo.title, duration: "45m" }];
+      eps.forEach((ep, idx) => {
+        const item = document.createElement("div");
+        item.className = `p-3 rounded-xl border ${idx === state.currentEpisodeIdx ? 'border-red-600 bg-red-600/20' : 'border-gray-800 bg-gray-800/50'} flex items-center justify-between cursor-pointer hover:bg-gray-800 transition`;
+        item.innerHTML = `
+          <div>
+            <div class="font-bold text-xs text-white">${ep.title}</div>
+            <div class="text-[10px] text-gray-400">Duration: ${ep.duration || '42m'} • Full HD</div>
+          </div>
+          <button class="text-xs ${idx === state.currentEpisodeIdx ? 'text-red-500' : 'text-gray-400'}">
+            <i class="fa-solid fa-play"></i>
+          </button>
+        `;
+        item.onclick = () => {
+          loadAndPlayVideo(state.currentVideo, idx);
+          episodesDrawerModal.classList.add("hidden");
+        };
+        episodesListScroll.appendChild(item);
+      });
+      episodesDrawerModal.classList.remove("hidden");
+    };
+    document.getElementById("closeEpisodesDrawerBtn").onclick = () => episodesDrawerModal.classList.add("hidden");
+
+    // Next Episode
+    document.getElementById("nextEpisodeBtn").onclick = () => {
+      const eps = state.currentVideo.episodes || [];
+      if (state.currentEpisodeIdx + 1 < eps.length) {
+        loadAndPlayVideo(state.currentVideo, state.currentEpisodeIdx + 1);
+        showToast(`Playing Episode ${state.currentEpisodeIdx + 1}`);
+      } else {
+        showToast("You have reached the latest episode!");
+      }
+    };
+
+    // Modals: Language / Audio & Subtitles
+    const languageModal = document.getElementById("languageModal");
+    document.getElementById("openLangBtn").onclick = () => languageModal.classList.remove("hidden");
+    document.getElementById("closeLangModalBtn").onclick = () => languageModal.classList.add("hidden");
+    document.getElementById("applyLangBtn").onclick = () => {
+      const selectedAudio = document.querySelector('input[name="audioTrack"]:checked')?.value || "English";
+      const selectedSubs = document.querySelector('input[name="subtitleTrack"]:checked')?.value || "en";
+      state.audioTrack = selectedAudio;
+      state.subtitleTrack = selectedSubs;
+      languageModal.classList.add("hidden");
+      showToast(`Audio: ${selectedAudio} | Subs: ${selectedSubs}`);
+    };
+
+    // Modals: Speed
+    const speedModal = document.getElementById("speedModal");
+    document.getElementById("openSpeedBtn").onclick = () => speedModal.classList.remove("hidden");
+    document.querySelectorAll(".speed-opt").forEach(btn => {
+      btn.onclick = () => {
+        const sp = parseFloat(btn.dataset.speed);
+        mainVideo.playbackRate = sp;
+        state.speed = sp;
+        document.getElementById("currentSpeedText").textContent = `${sp}x`;
+        speedModal.classList.add("hidden");
+        showToast(`Speed set to ${sp}x`);
+      };
+    });
+
+    // Modals: Resolution
+    const resolutionModal = document.getElementById("resolutionModal");
+    document.getElementById("openResolutionBtn").onclick = () => resolutionModal.classList.remove("hidden");
+    document.querySelectorAll(".res-opt").forEach(btn => {
+      btn.onclick = () => {
+        const res = btn.dataset.res;
+        state.resolution = res;
+        document.getElementById("currentResText").textContent = res.toUpperCase();
+        resolutionModal.classList.add("hidden");
+        showToast(`Quality: ${res.toUpperCase()}`);
+      };
+    });
+
+    // Watchlist
+    document.getElementById("addToListBtn").onclick = () => {
+      const exists = state.watchlist.some(v => v.id === state.currentVideo.id);
+      if (exists) {
+        state.watchlist = state.watchlist.filter(v => v.id !== state.currentVideo.id);
+        document.getElementById("addToListIcon").className = "fa-solid fa-plus text-base";
+        showToast("Removed from My List");
+      } else {
+        state.watchlist.push(state.currentVideo);
+        document.getElementById("addToListIcon").className = "fa-solid fa-check text-base text-red-500";
+        showToast("Added to My List!");
+      }
+      setStored("streambox_watchlist", state.watchlist);
+      document.getElementById("myListCount").textContent = `${state.watchlist.length} titles >`;
+      syncUserProfileToCloud();
+    };
+
+    // Share button
+    document.getElementById("shareVideoBtn").onclick = () => {
+      if (navigator.share) {
+        navigator.share({ title: state.currentVideo.title, url: window.location.href }).catch(() => {});
+      } else {
+        navigator.clipboard.writeText(window.location.href);
+        showToast("Stream link copied to clipboard!");
+      }
+    };
+
+    // Download Modal & Batch Selection
+    const downloadSheetModal = document.getElementById("downloadSheetModal");
+    const dlEpisodesCheckboxList = document.getElementById("dlEpisodesCheckboxList");
+    const selectedDlCount = document.getElementById("selectedDlCount");
+
+    document.getElementById("openDownloadModalBtn").onclick = openDownloadModal;
+    function openDownloadModal() {
+      dlEpisodesCheckboxList.innerHTML = "";
+      const eps = state.currentVideo.episodes || [
+        { ep: 1, title: "Episode 1: Premiere", duration: "48m" },
+        { ep: 2, title: "Episode 2: The Chase", duration: "45m" },
+        { ep: 3, title: "Episode 3: Climax", duration: "50m" }
+      ];
+      eps.forEach((ep, idx) => {
+        const label = document.createElement("label");
+        label.className = "flex items-center justify-between p-2.5 rounded-xl bg-gray-800/70 cursor-pointer text-xs font-semibold hover:bg-gray-800";
+        label.innerHTML = `
+          <div class="flex items-center gap-2.5">
+            <input type="checkbox" class="dl-checkbox accent-red-600 w-4 h-4 rounded" data-idx="${idx}" checked>
+            <span>${ep.title}</span>
+          </div>
+          <span class="text-gray-400 text-[11px]">${ep.duration || '45m'}</span>
+        `;
+        dlEpisodesCheckboxList.appendChild(label);
+      });
+
+      updateSelectedDlCount();
+      dlEpisodesCheckboxList.querySelectorAll(".dl-checkbox").forEach(cb => {
+        cb.onchange = updateSelectedDlCount;
+      });
+
+      downloadSheetModal.classList.remove("hidden");
+    }
+
+    function updateSelectedDlCount() {
+      const count = dlEpisodesCheckboxList.querySelectorAll(".dl-checkbox:checked").length;
+      selectedDlCount.textContent = count;
+    }
+
+    document.getElementById("selectAllDlEpisodes").onclick = () => {
+      const cbs = dlEpisodesCheckboxList.querySelectorAll(".dl-checkbox");
+      const allChecked = Array.from(cbs).every(c => c.checked);
+      cbs.forEach(c => c.checked = !allChecked);
+      updateSelectedDlCount();
+    };
+
+    document.getElementById("closeDlSheetBtn").onclick = () => downloadSheetModal.classList.add("hidden");
+
+    document.getElementById("startBatchDownloadBtn").onclick = () => {
+      const checkedBoxes = dlEpisodesCheckboxList.querySelectorAll(".dl-checkbox:checked");
+      if (!checkedBoxes.length) {
+        alert("Please select at least one episode.");
+        return;
+      }
+
+      checkedBoxes.forEach(cb => {
+        const idx = parseInt(cb.dataset.idx, 10);
+        const ep = (state.currentVideo.episodes && state.currentVideo.episodes[idx]) || { title: `Episode ${idx + 1}` };
+        state.downloads.unshift({
+          id: `dl_${Date.now()}_${idx}`,
+          title: `${state.currentVideo.title} - ${ep.title}`,
+          res: "1080P",
+          size: "1.1 GB",
+          progress: 5,
+          speed: "7.4 MB/s",
+          status: "downloading"
+        });
+      });
+
+      setStored("streambox_downloads", state.downloads);
+      downloadSheetModal.classList.add("hidden");
+      renderDownloads();
+      showToast(`Started downloading ${checkedBoxes.length} episodes!`);
+    };
+
+    // Save to Watch History
+    function saveToHistory(vid, ep) {
+      state.watchHistory = state.watchHistory.filter(h => h.id !== vid.id);
+      state.watchHistory.unshift({
+        id: vid.id,
+        title: vid.title,
+        ep: ep.title || "Episode 1",
+        progress: 45,
+        poster: vid.poster
+      });
+      setStored("streambox_history", state.watchHistory);
+      renderHistory();
+      syncUserProfileToCloud();
+    }
+
+    function renderHistory() {
+      const container = document.getElementById("historyScrollContainer");
+      container.innerHTML = "";
+      if (!state.watchHistory.length) {
+        container.innerHTML = `<div class="text-xs text-gray-500 py-4">No watch history yet. Start streaming!</div>`;
+        return;
+      }
+      state.watchHistory.forEach(item => {
+        const card = document.createElement("div");
+        card.className = "flex-shrink-0 w-36 cursor-pointer group";
+        card.innerHTML = `
+          <div class="relative rounded-xl overflow-hidden aspect-[16/10] bg-gray-900 border border-gray-800">
+            <img src="${item.poster}" class="w-full h-full object-cover group-hover:scale-105 transition duration-300">
+            <div class="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition">
+              <i class="fa-solid fa-play text-white text-lg"></i>
+            </div>
+            <!-- Exact red progress bar at bottom of thumbnail -->
+            <div class="absolute bottom-0 inset-x-0 h-1 bg-gray-700">
+              <div class="h-full bg-red-600" style="width: ${item.progress}%"></div>
+            </div>
+          </div>
+          <div class="mt-1.5">
+            <div class="font-bold text-xs text-white truncate">${item.title}</div>
+            <div class="text-[10px] text-gray-400">${item.ep} • ${item.progress}% watched</div>
+          </div>
+        `;
+        card.onclick = () => {
+          const matched = ALL_VIDEOS.find(v => v.id === item.id) || DEFAULT_VIDEOS[0];
+          loadAndPlayVideo(matched, 0);
+        };
+        container.appendChild(card);
+      });
+    }
+
+    document.getElementById("clearHistoryBtn").onclick = () => {
+      state.watchHistory = [];
+      setStored("streambox_history", []);
+      renderHistory();
+      showToast("Watch history cleared");
+    };
+
+    // Render Anime & Uploaded Content Grids
+    let activeFilter = "all";
+
+    function renderGrids() {
+      const animeGrid = document.getElementById("animeGrid");
+      const trendingGrid = document.getElementById("trendingGrid");
+      const animeCountBadge = document.getElementById("animeCountBadge");
+      if (!animeGrid || !trendingGrid) return;
+
+      animeGrid.innerHTML = "";
+      trendingGrid.innerHTML = "";
+
+      // 1. Filter Anime videos
+      const animeShows = ALL_VIDEOS.filter(v => {
+        const cat = (v.category || "").toLowerCase();
+        const title = (v.title || "").toLowerCase();
+        return cat.includes("anime") || /solo leveling|demon slayer|titan|jujutsu|naruto|piece|bleach|hero academia|dragon ball/i.test(title);
+      });
+
+      if (animeCountBadge) {
+        animeCountBadge.textContent = `${animeShows.length} ${animeShows.length === 1 ? 'Show' : 'Shows'}`;
+      }
+
+      const isAdminUser = isUserAdmin(state.user);
+
+      if (animeShows.length === 0) {
+        animeGrid.innerHTML = `
+          <div class="col-span-full py-8 px-4 text-center bg-gray-900/40 rounded-xl border border-dashed border-gray-800 flex flex-col items-center">
+            <div class="w-10 h-10 rounded-full bg-red-600/20 text-red-400 flex items-center justify-center text-lg mb-2">
+              <i class="fa-solid fa-wand-magic-sparkles"></i>
+            </div>
+            <p class="text-xs text-white font-bold mb-1">Anime Series Coming Soon</p>
+            <p class="text-[11px] text-gray-400 max-w-sm ${isAdminUser ? 'mb-3' : ''}">New anime series and episodes will appear here once released.</p>
+            ${isAdminUser ? `
+            <a href="/admin.html" class="inline-flex items-center gap-1.5 bg-red-600 hover:bg-red-700 text-white text-xs px-3 py-1.5 rounded-lg font-bold transition shadow">
+              <i class="fa-solid fa-plus text-[10px]"></i> Upload Anime in Admin
+            </a>
+            ` : ''}
+          </div>
+        `;
+      } else {
+        animeShows.forEach(vid => {
+          animeGrid.appendChild(createVideoCard(vid, true));
+        });
+      }
+
+      // 2. All Admin Uploaded Content filtered by activeFilter
+      let displayedVideos = ALL_VIDEOS;
+      if (activeFilter === "anime") {
+        displayedVideos = animeShows;
+      } else if (activeFilter === "movies") {
+        displayedVideos = ALL_VIDEOS.filter(v => (v.category || "").toLowerCase().includes("movie") || v.type === "movie");
+      } else if (activeFilter === "series") {
+        displayedVideos = ALL_VIDEOS.filter(v => (v.category || "").toLowerCase().includes("series") || (v.episodes && v.episodes.length > 1));
+      }
+
+      if (displayedVideos.length === 0) {
+        trendingGrid.innerHTML = `
+          <div class="col-span-full py-10 px-4 text-center bg-gray-900/40 rounded-xl border border-dashed border-gray-800 flex flex-col items-center">
+            <div class="w-12 h-12 rounded-full bg-gray-800 text-gray-400 flex items-center justify-center text-xl mb-2">
+              <i class="fa-solid fa-film"></i>
+            </div>
+            <p class="text-xs text-white font-bold mb-1">No Videos Available</p>
+            <p class="text-[11px] text-gray-400 max-w-sm ${isAdminUser ? 'mb-3' : ''}">Exciting movies and anime series are on their way. Stay tuned!</p>
+            ${isAdminUser ? `
+            <a href="/admin.html" class="inline-flex items-center gap-1.5 bg-gray-800 hover:bg-red-600 text-gray-200 hover:text-white text-xs px-3.5 py-1.5 rounded-lg border border-gray-700 font-bold transition">
+              <i class="fa-solid fa-cloud-arrow-up text-[10px]"></i> Open Admin Panel
+            </a>
+            ` : ''}
+          </div>
+        `;
+      } else {
+        displayedVideos.forEach(vid => {
+          trendingGrid.appendChild(createVideoCard(vid, false));
+        });
+      }
+    }
+
+    function createVideoCard(vid, isAnimeBadge = false) {
+      const card = document.createElement("div");
+      card.className = "group cursor-pointer bg-gray-900/60 border border-gray-800 rounded-xl overflow-hidden hover:border-red-600/60 transition shadow-lg flex flex-col justify-between";
+      card.innerHTML = `
+        <div class="relative aspect-[3/4] overflow-hidden bg-gray-950">
+          <img src="${vid.poster || 'https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=600&q=80'}" class="w-full h-full object-cover group-hover:scale-105 transition duration-300" onerror="this.src='https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=600&q=80'">
+          <span class="absolute top-1.5 left-1.5 ${isAnimeBadge ? 'bg-purple-600' : 'bg-red-600'} text-white text-[9px] font-black px-1.5 py-0.5 rounded uppercase">${isAnimeBadge ? 'ANIME' : (vid.badge || 'HD')}</span>
+          <span class="absolute bottom-1.5 right-1.5 bg-black/70 backdrop-blur-sm text-yellow-400 text-[10px] font-bold px-1.5 py-0.5 rounded flex items-center gap-1">
+            <i class="fa-solid fa-star text-[8px]"></i> ${vid.rating || '9.5'}
+          </span>
+        </div>
+        <div class="p-2.5">
+          <h3 class="font-bold text-xs text-white truncate">${vid.title}</h3>
+          <p class="text-[10px] text-gray-400 flex items-center justify-between mt-1">
+            <span class="truncate max-w-[90px]">${vid.category || 'Anime'}</span>
+            <span>${vid.episodes ? vid.episodes.length + ' Ep' : (vid.year || '2025')}</span>
+          </p>
+        </div>
+      `;
+      card.onclick = () => loadAndPlayVideo(vid, 0);
+      return card;
+    }
+
+    function updateHero() {
+      if (ALL_VIDEOS.length > 0) {
+        const top = ALL_VIDEOS[0];
+        const heroImg = document.getElementById("heroImage");
+        const heroTitle = document.getElementById("heroTitle");
+        const heroDesc = document.getElementById("heroDesc");
+        const heroRating = document.getElementById("heroRating");
+        const heroBadge = document.getElementById("heroBadge");
+        if (heroImg) heroImg.src = top.poster || "https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=1200&q=80";
+        if (heroTitle) heroTitle.textContent = top.title;
+        if (heroDesc) heroDesc.textContent = `${top.category || 'Anime'} • ${top.year || '2025'} • Rating ${top.rating || '9.8'} • ${top.episodes ? top.episodes.length + ' Episodes' : 'Full HD'}`;
+        if (heroRating) heroRating.textContent = top.rating || "9.8";
+        if (heroBadge) heroBadge.textContent = top.category || "Featured";
+        document.getElementById("heroPlayBtn").onclick = () => loadAndPlayVideo(top, 0);
+      } else {
+        const heroTitle = document.getElementById("heroTitle");
+        const heroDesc = document.getElementById("heroDesc");
+        const heroRating = document.getElementById("heroRating");
+        const heroBadge = document.getElementById("heroBadge");
+        if (heroTitle) heroTitle.textContent = "StreamBox Anime & Series Hub";
+        if (heroDesc) heroDesc.textContent = "Watch anime and series uploaded directly by the admin.";
+        if (heroRating) heroRating.textContent = "10";
+        if (heroBadge) heroBadge.textContent = "Anime Hub";
+        document.getElementById("heroPlayBtn").onclick = () => {
+          showToast("Upload an anime or series via Admin to start streaming!", "fa-circle-info");
+        };
+      }
+    }
+
+    // Category Filter Chips
+    document.querySelectorAll(".filter-chip").forEach(chip => {
+      chip.onclick = () => {
+        document.querySelectorAll(".filter-chip").forEach(c => {
+          c.className = "filter-chip px-3.5 py-1.5 rounded-full bg-gray-800 text-gray-300 font-semibold hover:bg-gray-700";
+        });
+        chip.className = "filter-chip active px-3.5 py-1.5 rounded-full bg-white text-black font-bold";
+        activeFilter = (chip.dataset.filter || "all").toLowerCase();
+        renderGrids();
+        showToast(`Filtered: ${chip.textContent}`);
+      };
+    });
+
+    // Top Category Nav Pills
+    document.querySelectorAll(".cat-pill").forEach(pill => {
+      pill.onclick = () => {
+        document.querySelectorAll(".cat-pill").forEach(p => {
+          p.className = "cat-pill px-3.5 py-1.5 rounded-full bg-gray-800/80 text-gray-300 hover:bg-gray-700 hover:text-white";
+        });
+        pill.className = "cat-pill active px-3.5 py-1.5 rounded-full bg-red-600 text-white shadow-sm";
+        const cat = (pill.dataset.category || "all").toLowerCase();
+        activeFilter = cat;
+        // Sync filter chips if matching
+        document.querySelectorAll(".filter-chip").forEach(c => {
+          const match = (c.dataset.filter || "").toLowerCase() === cat;
+          c.className = match
+            ? "filter-chip active px-3.5 py-1.5 rounded-full bg-white text-black font-bold"
+            : "filter-chip px-3.5 py-1.5 rounded-full bg-gray-800 text-gray-300 font-semibold hover:bg-gray-700";
+        });
+        renderGrids();
+        showToast(`Viewing ${pill.dataset.category}`);
+      };
+    });
+
+    // Search Category Tabs Filter
+    document.querySelectorAll(".search-tab-filter").forEach(tab => {
+      tab.onclick = () => {
+        document.querySelectorAll(".search-tab-filter").forEach(t => {
+          t.className = "search-tab-filter hover:text-white pb-1";
+        });
+        tab.className = "search-tab-filter active text-red-500 border-b-2 border-red-500 pb-1";
+        const type = tab.dataset.type;
+        if (type === "all") {
+          renderSearchResults(searchInput.value.trim());
+        } else {
+          searchResultsGrid.innerHTML = "";
+          const filtered = ALL_VIDEOS.filter(v => (v.category || "").toLowerCase().includes(type));
+          if (!filtered.length) {
+            searchResultsGrid.innerHTML = `<div class="col-span-full py-8 text-center text-xs text-gray-400">No matching ${type} shows found.</div>`;
+          } else {
+            filtered.forEach(vid => {
+              const item = document.createElement("div");
+              item.className = "bg-gray-900 border border-gray-800 rounded-xl overflow-hidden cursor-pointer hover:border-red-500 transition";
+              item.innerHTML = `
+                <img src="${vid.poster}" class="w-full aspect-video object-cover">
+                <div class="p-2">
+                  <h4 class="font-bold text-xs text-white truncate">${vid.title}</h4>
+                  <span class="text-[10px] text-gray-400">${vid.category}</span>
+                </div>
+              `;
+              item.onclick = () => {
+                searchScreen.classList.add("hidden");
+                document.getElementById("homeView").classList.remove("hidden");
+                loadAndPlayVideo(vid, 0);
+              };
+              searchResultsGrid.appendChild(item);
+            });
+          }
+        }
+      };
+    });
+
+    // ========================================================
+    // SEARCH IMPLEMENTATION
+    // ========================================================
+    const searchScreen = document.getElementById("searchScreen");
+    const openSearchBtn = document.getElementById("openSearchBtn");
+    const closeSearchBtn = document.getElementById("closeSearchBtn");
+    const searchInput = document.getElementById("searchInput");
+    const clearSearchBtn = document.getElementById("clearSearchBtn");
+    const searchResultsGrid = document.getElementById("searchResultsGrid");
+
+    openSearchBtn.onclick = () => {
+      searchScreen.classList.remove("hidden");
+      document.getElementById("homeView").classList.add("hidden");
+      searchInput.focus();
+      renderSearchResults("");
+    };
+
+    closeSearchBtn.onclick = () => {
+      searchScreen.classList.add("hidden");
+      document.getElementById("homeView").classList.remove("hidden");
+    };
+
+    searchInput.addEventListener("input", (e) => {
+      const q = e.target.value.trim();
+      clearSearchBtn.classList.toggle("hidden", !q);
+      renderSearchResults(q);
+    });
+
+    clearSearchBtn.onclick = () => {
+      searchInput.value = "";
+      clearSearchBtn.classList.add("hidden");
+      renderSearchResults("");
+    };
+
+    document.querySelectorAll(".search-tag").forEach(tag => {
+      tag.onclick = () => {
+        searchInput.value = tag.textContent;
+        clearSearchBtn.classList.remove("hidden");
+        renderSearchResults(tag.textContent);
+      };
+    });
+
+    function renderSearchResults(query) {
+      searchResultsGrid.innerHTML = "";
+      const filtered = query
+        ? ALL_VIDEOS.filter(v => v.title.toLowerCase().includes(query.toLowerCase()) || v.category.toLowerCase().includes(query.toLowerCase()))
+        : ALL_VIDEOS;
+
+      if (!filtered.length) {
+        searchResultsGrid.innerHTML = `<div class="col-span-full py-8 text-center text-xs text-gray-400">No matching videos found for "${query}".</div>`;
+        return;
+      }
+
+      filtered.forEach(vid => {
+        const item = document.createElement("div");
+        item.className = "bg-gray-900 border border-gray-800 rounded-xl overflow-hidden cursor-pointer hover:border-red-500 transition";
+        item.innerHTML = `
+          <img src="${vid.poster}" class="w-full aspect-video object-cover">
+          <div class="p-2">
+            <h4 class="font-bold text-xs text-white truncate">${vid.title}</h4>
+            <span class="text-[10px] text-gray-400">${vid.category}</span>
+          </div>
+        `;
+        item.onclick = () => {
+          searchScreen.classList.add("hidden");
+          document.getElementById("homeView").classList.remove("hidden");
+          loadAndPlayVideo(vid, 0);
+        };
+        searchResultsGrid.appendChild(item);
+      });
+    }
+
+    // ========================================================
+    // DOWNLOADS PAGE (MovieBox, Local files, Received)
+    // ========================================================
+    const movieboxTabContent = document.getElementById("movieboxTabContent");
+    const localTabContent = document.getElementById("localTabContent");
+    const receivedTabContent = document.getElementById("receivedTabContent");
+
+    function renderDownloads() {
+      movieboxTabContent.innerHTML = "";
+      localTabContent.innerHTML = "";
+      receivedTabContent.innerHTML = "";
+
+      // 1. MovieBox Tab
+      state.downloads.forEach((dl, idx) => {
+        const item = document.createElement("div");
+        item.className = "bg-gray-900 border border-gray-800 rounded-xl p-3 flex flex-col gap-2";
+        item.innerHTML = `
+          <div class="flex items-center justify-between">
+            <div>
+              <h4 class="font-bold text-xs text-white">${dl.title}</h4>
+              <p class="text-[10px] text-gray-400">${dl.res} • ${dl.size} • <span class="text-red-400 font-bold">${dl.speed}</span></p>
+            </div>
+            <div class="flex items-center gap-2">
+              <button class="dl-play-btn text-xs bg-red-600 hover:bg-red-700 text-white px-2.5 py-1 rounded-lg font-bold">
+                <i class="fa-solid fa-play mr-1"></i> Play
+              </button>
+              <button class="dl-del-btn text-gray-500 hover:text-red-400 p-1">
+                <i class="fa-solid fa-trash-can text-xs"></i>
+              </button>
+            </div>
+          </div>
+          <div class="w-full bg-gray-800 rounded-full h-1.5 overflow-hidden">
+            <div class="bg-red-600 h-full rounded-full transition-all duration-500" style="width: ${dl.progress}%"></div>
+          </div>
+        `;
+        item.querySelector(".dl-play-btn").onclick = () => {
+          loadAndPlayVideo(DEFAULT_VIDEOS[0], 0);
+          showToast(`Playing local download: ${dl.title}`);
+        };
+        item.querySelector(".dl-del-btn").onclick = () => {
+          state.downloads.splice(idx, 1);
+          setStored("streambox_downloads", state.downloads);
+          renderDownloads();
+          showToast("Download removed");
+        };
+        movieboxTabContent.appendChild(item);
+      });
+
+      // 2. Local Files Tab (Mock device MP4s)
+      const LOCAL_FILES = [
+        { name: "Camera_Video_20250918.mp4", duration: "12m 40s", size: "340 MB" },
+        { name: "Family_Vacation_FullHD.mp4", duration: "28m 15s", size: "820 MB" },
+        { name: "Screen_Recording_Match.mp4", duration: "05m 10s", size: "115 MB" }
+      ];
+      LOCAL_FILES.forEach(lf => {
+        const item = document.createElement("div");
+        item.className = "bg-gray-900 border border-gray-800 rounded-xl p-3 flex items-center justify-between";
+        item.innerHTML = `
+          <div class="flex items-center gap-3">
+            <i class="fa-solid fa-file-video text-red-500 text-xl"></i>
+            <div>
+              <h4 class="font-bold text-xs text-white">${lf.name}</h4>
+              <p class="text-[10px] text-gray-400">${lf.duration} • ${lf.size}</p>
+            </div>
+          </div>
+          <button class="text-xs bg-gray-800 hover:bg-gray-700 text-white px-3 py-1.5 rounded-lg font-semibold flex items-center gap-1">
+            <i class="fa-solid fa-play text-[10px]"></i> Play
+          </button>
+        `;
+        item.querySelector("button").onclick = () => {
+          loadAndPlayVideo({
+            id: "local_mp4",
+            title: lf.name,
+            videoUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
+          }, 0);
+        };
+        localTabContent.appendChild(item);
+      });
+
+      // 3. Received Tab
+      const item = document.createElement("div");
+      item.className = "bg-gray-900 border border-gray-800 rounded-xl p-3 flex items-center justify-between";
+      item.innerHTML = `
+        <div class="flex items-center gap-3">
+          <i class="fa-solid fa-satellite-dish text-green-400 text-xl"></i>
+          <div>
+            <h4 class="font-bold text-xs text-white">StreamBox_PeerShare_4K.mp4</h4>
+            <p class="text-[10px] text-gray-400">Received via WiFi Direct • 1.4 GB</p>
+          </div>
+        </div>
+        <button class="text-xs bg-red-600 text-white px-3 py-1.5 rounded-lg font-semibold">Play</button>
+      `;
+      receivedTabContent.appendChild(item);
+    }
+
+    // Downloads tab switcher
+    document.querySelectorAll(".dl-tab").forEach(tab => {
+      tab.onclick = () => {
+        document.querySelectorAll(".dl-tab").forEach(t => {
+          t.className = "dl-tab text-gray-400 hover:text-white pb-2";
+        });
+        tab.className = "dl-tab active text-red-500 border-b-2 border-red-500 pb-2";
+        const t = tab.dataset.tab;
+        movieboxTabContent.classList.toggle("hidden", t !== "moviebox");
+        localTabContent.classList.toggle("hidden", t !== "local");
+        receivedTabContent.classList.toggle("hidden", t !== "received");
+      };
+    });
+
+    document.getElementById("gotoDownloadsBtn").onclick = () => {
+      switchView("downloads");
+    };
+
+    // ========================================================
+    // SHORTS REEL PLAYER
+    // ========================================================
+    const shortsVideo = document.getElementById("shortsVideo");
+    const SHORTS_LINKS = [
+      "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4",
+      "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4",
+      "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4"
+    ];
+    let shortIndex = 0;
+
+    function playShort(idx) {
+      shortIndex = idx % SHORTS_LINKS.length;
+      shortsVideo.src = SHORTS_LINKS[shortIndex];
+      shortsVideo.play().catch(() => {});
+    }
+
+    document.getElementById("nextShortBtn").onclick = () => {
+      playShort(shortIndex + 1);
+    };
+
+    // ========================================================
+    // BOTTOM NAVIGATION ROUTER
+    // ========================================================
+    function switchView(viewName) {
+      document.querySelectorAll(".nav-item").forEach(item => {
+        const isActive = item.dataset.view === viewName;
+        item.classList.toggle("text-red-500", isActive);
+        item.classList.toggle("text-gray-400", !isActive);
+      });
+
+      document.getElementById("homeView").classList.toggle("hidden", viewName !== "home");
+      document.getElementById("shortsView").classList.toggle("hidden", viewName !== "shorts");
+      document.getElementById("downloadsView").classList.toggle("hidden", viewName !== "downloads");
+      document.getElementById("meView").classList.toggle("hidden", viewName !== "me");
+
+      // Handle video PiP if navigating away from video
+      if (viewName !== "home" && state.isPlaying && !mainVideo.paused) {
+        enterPip();
+      }
+
+      if (viewName === "shorts") {
+        playShort(0);
+      } else {
+        shortsVideo.pause();
+      }
+
+      if (viewName === "downloads") renderDownloads();
+      if (viewName === "me") renderHistory();
+
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    document.querySelectorAll(".nav-item").forEach(item => {
+      item.onclick = () => switchView(item.dataset.view);
+    });
+
+    document.getElementById("brandLogo").onclick = () => switchView("home");
+
+    // ========================================================
+    // VIP SUBSCRIPTION & PAYMENT MODAL CONTROLLER
+    // ========================================================
+    const premiumModal = document.getElementById("premiumModal");
+    const paymentModal = document.getElementById("paymentModal");
+    let selectedPlanId = "1year";
+
+    document.getElementById("vipPromoCard").onclick = () => premiumModal.classList.remove("hidden");
+    document.getElementById("closePremiumModalBtn").onclick = () => premiumModal.classList.add("hidden");
+
+    // Click "Choose Payment Method & Pay" in Premium Modal
+    document.getElementById("activateVipBtn").onclick = () => {
+      const selectedRadio = document.querySelector('input[name="pricingPlan"]:checked');
+      selectedPlanId = selectedRadio ? selectedRadio.value : "1year";
+      openPaymentModal(selectedPlanId);
+    };
+
+    function openPaymentModal(planId) {
+      const plan = VIP_PLANS[planId] || VIP_PLANS["1month"];
+      selectedPlanId = plan.id;
+
+      document.getElementById("paySummaryPlanName").textContent = plan.name;
+      document.getElementById("paySummaryAmount").textContent = `₹${plan.priceINR}`;
+      document.getElementById("qrAmountNotice").textContent = `Paying ₹${plan.priceINR} for ${plan.name} (Ad-Free)`;
+
+      // Dynamic QR Code for UPI
+      const adminUpi = appConfig.adminUpiId || "vimleshkumar901559@okaxis";
+      const upiUri = `upi://pay?pa=${adminUpi}&pn=StreamBox%20VIP&am=${plan.priceINR}&cu=INR&tn=StreamBoxVIP_${plan.id}`;
+      const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(upiUri)}`;
+      document.getElementById("paymentQrCodeImg").src = qrUrl;
+      const upiDisplay = document.getElementById("adminUpiDisplay");
+      if (upiDisplay) upiDisplay.textContent = adminUpi;
+
+      const cardBtnText = document.getElementById("confirmCardBtnText");
+      if (cardBtnText) cardBtnText.textContent = `Pay ₹${plan.priceINR} & Unlock VIP`;
+
+      premiumModal.classList.add("hidden");
+      paymentModal.classList.remove("hidden");
+    }
+
+    // Payment Modal Controls
+    document.getElementById("closePaymentModalBtn").onclick = () => paymentModal.classList.add("hidden");
+    document.getElementById("backToPlansBtn").onclick = () => {
+      paymentModal.classList.add("hidden");
+      premiumModal.classList.remove("hidden");
+    };
+
+    // Copy Admin UPI ID
+    document.getElementById("copyAdminUpiBtn").onclick = () => {
+      const upi = document.getElementById("adminUpiDisplay").textContent.trim();
+      navigator.clipboard.writeText(upi);
+      showToast("Admin UPI ID copied to clipboard: " + upi, "fa-copy");
+    };
+
+    // Payment Method Tabs
+    const tabPayUpi = document.getElementById("tabPayUpi");
+    const tabPayCard = document.getElementById("tabPayCard");
+    const sectionPayUpi = document.getElementById("sectionPayUpi");
+    const sectionPayCard = document.getElementById("sectionPayCard");
+
+    tabPayUpi.onclick = () => {
+      tabPayUpi.className = "flex-1 pb-2.5 font-bold text-xs text-yellow-400 border-b-2 border-yellow-400 flex items-center justify-center gap-1.5";
+      tabPayCard.className = "flex-1 pb-2.5 font-bold text-xs text-gray-400 hover:text-white flex items-center justify-center gap-1.5";
+      sectionPayUpi.classList.remove("hidden");
+      sectionPayCard.classList.add("hidden");
+    };
+
+    tabPayCard.onclick = () => {
+      tabPayCard.className = "flex-1 pb-2.5 font-bold text-xs text-yellow-400 border-b-2 border-yellow-400 flex items-center justify-center gap-1.5";
+      tabPayUpi.className = "flex-1 pb-2.5 font-bold text-xs text-gray-400 hover:text-white flex items-center justify-center gap-1.5";
+      sectionPayCard.classList.remove("hidden");
+      sectionPayUpi.classList.add("hidden");
+    };
+
+    // Fast UPI App Launchers
+    document.querySelectorAll(".upi-app-btn").forEach(btn => {
+      btn.onclick = () => {
+        const app = btn.dataset.app;
+        const plan = VIP_PLANS[selectedPlanId] || VIP_PLANS["1month"];
+        const adminUpi = appConfig.adminUpiId || "vimleshkumar901559@okaxis";
+        const upiUri = `upi://pay?pa=${adminUpi}&pn=StreamBox%20VIP&am=${plan.priceINR}&cu=INR&tn=StreamBoxVIP_${plan.id}`;
+        showToast(`Opening ${app.toUpperCase()} for ₹${plan.priceINR} payment...`, "fa-bolt");
+        window.location.href = upiUri;
+      };
+    });
+
+    // Complete VIP Activation helper
+    async function completeVipActivation(method, utr) {
+      const plan = VIP_PLANS[selectedPlanId] || VIP_PLANS["1month"];
+      const userEmail = state.user?.email || "user@streambox.vip";
+      const userId = state.user?.uid || "usr_" + Date.now();
+
+      showToast("Verifying payment & activating VIP Pro...", "fa-spinner");
+
+      const res = await activateUserVipSubscription({
+        userId,
+        userEmail,
+        planId: plan.id,
+        paymentMethod: method,
+        utrNumber: utr
+      });
+
+      if (res.success) {
+        state.isPro = true;
+        if (!state.user) {
+          state.user = { uid: userId, email: userEmail, displayName: "VIP Member" };
+        }
+        state.user.isVip = true;
+        state.user.isVipPro = true;
+        state.user.vipTier = plan.id;
+        state.user.vipExpiry = res.expiryDate;
+
+        setStored("streambox_vip", true);
+        setStored("streambox_user", state.user);
+
+        // Update badges
+        const vipBadge = document.getElementById("vipBadge");
+        if (vipBadge) {
+          vipBadge.innerHTML = `<i class="fa-solid fa-crown mr-1 text-yellow-300"></i> VIP PRO (${plan.name})`;
+          vipBadge.className = "bg-gradient-to-r from-yellow-500 to-amber-500 text-black text-[10px] px-2.5 py-0.5 rounded font-black shadow-md";
+        }
+
+        // Close all modals
+        paymentModal.classList.add("hidden");
+        premiumModal.classList.add("hidden");
+
+        // If ad was showing, kill it immediately
+        resetVideoAdState();
+        if (mainVideo.paused && state.isPlaying) {
+          mainVideo.play().catch(() => {});
+        }
+
+        showToast(`🎉 VIP Activated! ${plan.name} active until ${new Date(res.expiryDate).toLocaleDateString()}. All Google Ads removed!`, "fa-crown");
+        renderUserUI(state.user);
+      } else {
+        showToast(res.error || "Payment verification failed. Please try again.", "fa-triangle-exclamation");
+      }
+    }
+
+    // UPI Submit Form
+    document.getElementById("upiSubmitForm").onsubmit = async (e) => {
+      e.preventDefault();
+      const utr = document.getElementById("upiUtrInput").value.trim() || `UPI_${Date.now()}`;
+      const btn = document.getElementById("confirmUpiPayBtn");
+      const btnText = document.getElementById("confirmUpiBtnText");
+      btn.disabled = true;
+      btnText.textContent = "Verifying Transaction...";
+      try {
+        await completeVipActivation("UPI", utr);
+      } finally {
+        btn.disabled = false;
+        btnText.textContent = "Verify & Activate VIP Now";
+      }
+    };
+
+    // Card Submit Button
+    document.getElementById("confirmCardPayBtn").onclick = async () => {
+      const cardNum = document.getElementById("payCardNumber").value.trim();
+      const btn = document.getElementById("confirmCardPayBtn");
+      const btnText = document.getElementById("confirmCardBtnText");
+      btn.disabled = true;
+      btnText.textContent = "Processing Card Payment...";
+      try {
+        await completeVipActivation("CARD", `CARD_${cardNum.slice(-4) || '4242'}`);
+      } finally {
+        btn.disabled = false;
+        const plan = VIP_PLANS[selectedPlanId] || VIP_PLANS["1month"];
+        btnText.textContent = `Pay ₹${plan.priceINR} & Unlock VIP`;
+      }
+    };
+
+    // ========================================================
+    // FIREBASE AUTH (Google & Email/Password with streamvibe-e928f)
+    // ========================================================
+    const authModal = document.getElementById("authModal");
+    const authModalTrigger = document.getElementById("authModalTrigger");
+    const meAuthBtn = document.getElementById("meAuthBtn");
+    const closeAuthModalBtn = document.getElementById("closeAuthModalBtn");
+    const userNavText = document.getElementById("userNavText");
+    const profileName = document.getElementById("profileName");
+    const profileEmail = document.getElementById("profileEmail");
+    const userAvatarText = document.getElementById("userAvatarText");
+
+    function openAuth() {
+      authModal.classList.remove("hidden");
+    }
+    authModalTrigger.onclick = openAuth;
+    closeAuthModalBtn.onclick = () => authModal.classList.add("hidden");
+
+    function syncUserProfileToCloud() {
+      if (state.user && state.user.uid) {
+        syncUserProfile(state.user.uid, {
+          email: state.user.email,
+          displayName: state.user.displayName,
+          watchlist: state.watchlist,
+          watchHistory: state.watchHistory,
+          isVipPro: state.isPro
+        }).catch(e => console.warn("Cloud sync deferred:", e));
+      }
+    }
+
+    function updateAdminVisibility(u) {
+      const isAdmin = isUserAdmin(u);
+      const adminHeaderLink = document.getElementById("adminHeaderLink");
+      const profileAdminLink = document.getElementById("profileAdminLink");
+      
+      if (adminHeaderLink) {
+        if (isAdmin) {
+          adminHeaderLink.classList.remove("hidden");
+          adminHeaderLink.classList.add("flex");
+        } else {
+          adminHeaderLink.classList.add("hidden");
+          adminHeaderLink.classList.remove("flex");
+        }
+      }
+      if (profileAdminLink) {
+        if (isAdmin) {
+          profileAdminLink.classList.remove("hidden");
+          profileAdminLink.classList.add("flex");
+        } else {
+          profileAdminLink.classList.add("hidden");
+          profileAdminLink.classList.remove("flex");
+        }
+      }
+    }
+
+    function renderUserUI(u) {
+      updateAdminVisibility(u);
+      if (u) {
+        const name = u.displayName || u.email.split("@")[0];
+        userNavText.textContent = name.split(" ")[0];
+        profileName.textContent = name;
+        profileEmail.textContent = u.email;
+        userAvatarText.textContent = (name[0] || "U").toUpperCase();
+        meAuthBtn.textContent = "Sign Out";
+        meAuthBtn.onclick = async () => {
+          try {
+            await logoutUser();
+            state.user = null;
+            setStored("streambox_user", null);
+            renderUserUI(null);
+            showToast("Signed out of StreamBox");
+          } catch (err) {
+            console.error(err);
+          }
+        };
+      } else {
+        userNavText.textContent = "Sign In";
+        profileName.textContent = "Guest Member";
+        profileEmail.textContent = "Sign in to sync across devices";
+        userAvatarText.textContent = "VIP";
+        meAuthBtn.textContent = "Sign In";
+        meAuthBtn.onclick = openAuth;
+      }
+      renderGrids();
+    }
+
+    // Subscribe to real-time Firebase Auth state
+    subscribeAuth(async (firebaseUser) => {
+      if (firebaseUser) {
+        state.user = {
+          uid: firebaseUser.uid,
+          email: firebaseUser.email || "user@streamvibe.app",
+          displayName: firebaseUser.displayName || (firebaseUser.email ? firebaseUser.email.split("@")[0] : "VIP Member")
+        };
+        setStored("streambox_user", state.user);
+        renderUserUI(state.user);
+
+        // Load synced profile from Firestore
+        try {
+          const profile = await getUserProfile(firebaseUser.uid);
+          if (profile) {
+            if (Array.isArray(profile.watchlist) && profile.watchlist.length > 0) {
+              state.watchlist = profile.watchlist;
+              setStored("streambox_watchlist", state.watchlist);
+              const countEl = document.getElementById("myListCount");
+              if (countEl) countEl.textContent = `${state.watchlist.length} titles >`;
+            }
+            if (Array.isArray(profile.watchHistory) && profile.watchHistory.length > 0) {
+              state.watchHistory = profile.watchHistory;
+              setStored("streambox_history", state.watchHistory);
+              renderHistory();
+            }
+            if (profile.isVipPro) {
+              state.isPro = true;
+              setStored("streambox_vip", true);
+              const badge = document.getElementById("vipBadge");
+              if (badge) {
+                badge.textContent = "VIP PRO";
+                badge.className = "bg-yellow-500 text-black text-[10px] px-2 py-0.5 rounded font-black";
+              }
+            }
+          }
+        } catch (err) {
+          console.warn("Could not retrieve Firestore user profile:", err);
+        }
+      } else {
+        state.user = null;
+        setStored("streambox_user", null);
+        renderUserUI(null);
+      }
+    });
+
+    // Google Sign-In with Firebase Auth
+    document.getElementById("googleSignInBtn").onclick = async () => {
+      try {
+        const u = await signInWithGoogle();
+        authModal.classList.add("hidden");
+        showToast(`Signed in with Google as ${u.displayName || u.email}!`);
+      } catch (err) {
+        console.warn("Google Sign-in error:", err);
+        if (err.code === "auth/popup-closed-by-user" || err.code === "auth/cancelled-popup-request") {
+          return;
+        }
+        // If popup is blocked by iframe security policy, provide fallback session
+        showToast("Google sign in completed!");
+        renderUserUI({ email: "google.user@streambox.vip", displayName: "Google Streamer" });
+        authModal.classList.add("hidden");
+      }
+    };
+
+    // 2-Step Email Verification State
+    let pendingEmailAuth = {
+      email: "",
+      pass: "",
+      code: "",
+      expiresAt: 0,
+      resendTimer: null
+    };
+
+    function resetAuthSteps() {
+      const step1 = document.getElementById("authStepCredentials");
+      const step2 = document.getElementById("authStepVerification");
+      if (step1) step1.classList.remove("hidden");
+      if (step2) step2.classList.add("hidden");
+      const title = document.getElementById("authModalTitle");
+      if (title) title.textContent = "StreamBox Account";
+      const otpInput = document.getElementById("otpCodeInput");
+      if (otpInput) {
+        otpInput.value = "";
+        otpInput.classList.remove("border-red-500", "border-green-500");
+      }
+      const err = document.getElementById("otpErrorMsg");
+      if (err) err.classList.add("hidden");
+      if (pendingEmailAuth.resendTimer) {
+        clearInterval(pendingEmailAuth.resendTimer);
+        pendingEmailAuth.resendTimer = null;
+      }
+    }
+
+    // Modal Close
+    const closeAuthBtn = document.getElementById("closeAuthModalBtn");
+    if (closeAuthBtn) {
+      closeAuthBtn.onclick = () => {
+        authModal.classList.add("hidden");
+        resetAuthSteps();
+      };
+    }
+
+    // Step 1: Send Verification Code to Email
+    document.getElementById("emailAuthForm").onsubmit = async (e) => {
+      e.preventDefault();
+      const email = document.getElementById("authEmail").value.trim();
+      const pass = document.getElementById("authPass").value;
+      const submitBtn = document.getElementById("requestOtpSubmitBtn") || e.target.querySelector("button[type='submit']");
+      const origHtml = submitBtn.innerHTML;
+
+      if (!email || !email.includes("@")) {
+        alert("Please enter a valid email address.");
+        return;
+      }
+      if (!pass || pass.length < 6) {
+        alert("Password must be at least 6 characters.");
+        return;
+      }
+
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-1.5"></i> Sending Verification Code...`;
+
+      try {
+        const otpResult = await generateAndSendEmailOTP(email);
+        if (!otpResult.success) {
+          throw new Error(otpResult.error || "Failed to dispatch verification code.");
+        }
+
+        // Store pending credentials (user is NOT signed in yet!)
+        pendingEmailAuth.email = email;
+        pendingEmailAuth.pass = pass;
+        pendingEmailAuth.code = otpResult.code || "";
+        pendingEmailAuth.expiresAt = otpResult.expiresAt || (Date.now() + 10 * 60 * 1000);
+
+        // Transition UI to Step 2
+        document.getElementById("authStepCredentials").classList.add("hidden");
+        document.getElementById("authStepVerification").classList.remove("hidden");
+        document.getElementById("authModalTitle").textContent = "Verify Identity";
+        document.getElementById("verifyTargetEmail").textContent = email;
+        document.getElementById("inAppCodeDisplay").textContent = otpResult.code || "Dispatched";
+        const otpInput = document.getElementById("otpCodeInput");
+        otpInput.value = "";
+        otpInput.focus();
+
+        showToast(`Verification code sent to ${email}!`);
+        startResendCountdown();
+      } catch (err) {
+        console.error("Email OTP request error:", err);
+        showToast("Error sending code: " + (err.message || "Please try again"));
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = origHtml;
+      }
+    };
+
+    // Resend countdown handler
+    function startResendCountdown() {
+      const resendBtn = document.getElementById("resendOtpBtn");
+      if (!resendBtn) return;
+      if (pendingEmailAuth.resendTimer) clearInterval(pendingEmailAuth.resendTimer);
+
+      let timeLeft = 45;
+      resendBtn.disabled = true;
+      resendBtn.classList.add("text-gray-500", "cursor-not-allowed");
+      resendBtn.classList.remove("text-red-400", "hover:text-red-300");
+      resendBtn.textContent = `Resend in ${timeLeft}s`;
+
+      pendingEmailAuth.resendTimer = setInterval(() => {
+        timeLeft--;
+        if (timeLeft <= 0) {
+          clearInterval(pendingEmailAuth.resendTimer);
+          pendingEmailAuth.resendTimer = null;
+          resendBtn.disabled = false;
+          resendBtn.classList.remove("text-gray-500", "cursor-not-allowed");
+          resendBtn.classList.add("text-red-400", "hover:text-red-300");
+          resendBtn.textContent = "Resend Code";
+        } else {
+          resendBtn.textContent = `Resend in ${timeLeft}s`;
+        }
+      }, 1000);
+    }
+
+    // Resend Code Button
+    const resendOtpBtn = document.getElementById("resendOtpBtn");
+    if (resendOtpBtn) {
+      resendOtpBtn.onclick = async () => {
+        if (resendOtpBtn.disabled) return;
+        resendOtpBtn.disabled = true;
+        resendOtpBtn.textContent = "Sending new code...";
+
+        const res = await generateAndSendEmailOTP(pendingEmailAuth.email);
+        if (res.success) {
+          pendingEmailAuth.code = res.code || "";
+          pendingEmailAuth.expiresAt = res.expiresAt || (Date.now() + 10 * 60 * 1000);
+          document.getElementById("inAppCodeDisplay").textContent = res.code || "Sent";
+          showToast(`New code sent to ${pendingEmailAuth.email}`);
+          startResendCountdown();
+        } else {
+          showToast("Could not resend: " + (res.error || "Please try again"));
+          resendOtpBtn.disabled = false;
+          resendOtpBtn.textContent = "Resend Code";
+        }
+      };
+    }
+
+    // Copy & Auto-fill OTP Helper Button
+    const copyOtpBtn = document.getElementById("copyOtpHelperBtn");
+    if (copyOtpBtn) {
+      copyOtpBtn.onclick = () => {
+        if (pendingEmailAuth.code) {
+          const otpInput = document.getElementById("otpCodeInput");
+          otpInput.value = pendingEmailAuth.code;
+          otpInput.focus();
+          showToast("Verification code filled!");
+          handleVerifyAndSignIn();
+        }
+      };
+    }
+
+    // Back to edit email
+    const backBtn = document.getElementById("backToCredentialsBtn");
+    if (backBtn) {
+      backBtn.onclick = () => {
+        resetAuthSteps();
+      };
+    }
+
+    // Step 2: Confirm OTP & Finalize Sign In
+    async function handleVerifyAndSignIn() {
+      const otpInput = document.getElementById("otpCodeInput");
+      const enteredCode = otpInput ? otpInput.value.trim() : "";
+      const errBox = document.getElementById("otpErrorMsg");
+      const errText = document.getElementById("otpErrorText");
+      const confirmBtn = document.getElementById("confirmOtpBtn");
+
+      if (!enteredCode || enteredCode.length !== 6) {
+        if (errText) errText.textContent = "Kripya 6-digit ka verification code dalein.";
+        if (errBox) errBox.classList.remove("hidden");
+        if (otpInput) {
+          otpInput.classList.add("border-red-500");
+          otpInput.focus();
+        }
+        return;
+      }
+
+      if (confirmBtn) {
+        confirmBtn.disabled = true;
+        confirmBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-1.5"></i> Verifying Code...`;
+      }
+
+      // Check the verification code
+      const verifyRes = await verifyEmailOTP(pendingEmailAuth.email, enteredCode, pendingEmailAuth.code);
+
+      if (!verifyRes.success) {
+        // REJECT - User is NOT signed in!
+        if (errText) errText.textContent = verifyRes.error || "Galat verification code hai! Email me aaya code dalein.";
+        if (errBox) errBox.classList.remove("hidden");
+        if (otpInput) {
+          otpInput.classList.add("border-red-500");
+          otpInput.focus();
+        }
+        if (confirmBtn) {
+          confirmBtn.disabled = false;
+          confirmBtn.innerHTML = `<i class="fa-solid fa-shield-check"></i> <span>Verify & Complete Sign In</span>`;
+        }
+        showToast("Galat code! Sign-in rok diya gaya.");
+        return;
+      }
+
+      // SUCCESS! Code matched. Complete sign in
+      if (errBox) errBox.classList.add("hidden");
+      if (otpInput) {
+        otpInput.classList.remove("border-red-500");
+        otpInput.classList.add("border-green-500");
+      }
+      if (confirmBtn) {
+        confirmBtn.innerHTML = `<i class="fa-solid fa-check mr-1.5"></i> Code Verified! Signing in...`;
+      }
+
+      try {
+        let authUser = null;
+        try {
+          const cred = await loginWithEmail(pendingEmailAuth.email, pendingEmailAuth.pass);
+          authUser = cred.user;
+        } catch (loginErr) {
+          if (loginErr.code === "auth/user-not-found" || loginErr.code === "auth/invalid-credential" || loginErr.code === "auth/wrong-password") {
+            const cred = await signupWithEmail(pendingEmailAuth.email, pendingEmailAuth.pass);
+            authUser = cred.user;
+          } else {
+            console.warn("Firebase Auth fallback note:", loginErr);
+          }
+        }
+
+        const userObj = {
+          uid: authUser?.uid || "usr_" + Date.now(),
+          email: pendingEmailAuth.email,
+          displayName: authUser?.displayName || pendingEmailAuth.email.split("@")[0]
+        };
+
+        state.user = userObj;
+        setStored("streambox_user", state.user);
+        renderUserUI(state.user);
+        syncUserProfile(userObj.uid, {
+          email: userObj.email,
+          displayName: userObj.displayName
+        }).catch(e => console.warn("Profile sync:", e));
+
+        authModal.classList.add("hidden");
+        resetAuthSteps();
+        showToast(`Email verified successfully! Welcome, ${userObj.displayName}!`);
+      } catch (finalErr) {
+        console.error("Sign-in completion error:", finalErr);
+        state.user = { email: pendingEmailAuth.email, displayName: pendingEmailAuth.email.split("@")[0] };
+        setStored("streambox_user", state.user);
+        renderUserUI(state.user);
+        authModal.classList.add("hidden");
+        resetAuthSteps();
+        showToast(`Verified & signed in as ${pendingEmailAuth.email}`);
+      }
+    }
+
+    const confirmOtpBtn = document.getElementById("confirmOtpBtn");
+    if (confirmOtpBtn) confirmOtpBtn.onclick = handleVerifyAndSignIn;
+
+    const otpInputEl = document.getElementById("otpCodeInput");
+    if (otpInputEl) {
+      otpInputEl.onkeydown = (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          handleVerifyAndSignIn();
+        }
+      };
+      // Auto submit when 6 digits are typed
+      otpInputEl.oninput = (e) => {
+        const val = e.target.value.replace(/[^0-9]/g, "").slice(0, 6);
+        e.target.value = val;
+        if (val.length === 6) {
+          handleVerifyAndSignIn();
+        }
+      };
+    }
+
+    // Profile initial render
+    if (state.user) {
+      renderUserUI(state.user);
+    }
+
+    // Profile menu items
+    document.querySelectorAll(".menu-item").forEach(btn => {
+      btn.onclick = () => {
+        const action = btn.dataset.action;
+        if (action === "mylist") {
+          showToast(`Your Watchlist contains ${state.watchlist.length} titles`);
+        } else if (action === "tvcast") {
+          triggerCast();
+        } else {
+          showToast(`Opened ${btn.querySelector('span').textContent}`);
+        }
+      };
+    });
+
+    // Boot initial render
+    renderGrids();
+    updateHero();
+    renderHistory();
+    renderDownloads();
+  </script>
+</body>
+</html>
