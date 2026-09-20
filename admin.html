@@ -94,16 +94,10 @@
           <div>
             <h4 class="text-sm font-bold text-white">Enter 6-Digit Admin Code</h4>
             <p class="text-[11px] text-gray-300 mt-0.5">
-              Verification code dispatched to<br>
+              Verification code dispatched to your Gmail inbox:<br>
               <strong id="adminOtpTargetEmail" class="text-red-400 font-mono">vimleshkumar901559@gmail.com</strong>
             </p>
-          </div>
-
-          <div id="adminInAppCodeHelper" class="bg-black/70 border border-red-950 rounded-lg p-2 text-[10px] text-gray-300 flex items-center justify-between">
-            <span>Code: <strong id="adminInAppCodeDisplay" class="text-yellow-400 font-mono text-xs">------</strong></span>
-            <button type="button" id="adminCopyCodeBtn" class="bg-red-600/30 hover:bg-red-600 text-white px-2 py-0.5 rounded font-bold transition">
-              Copy
-            </button>
+            <p class="text-[10px] text-gray-400 mt-1">Apne Gmail inbox ya Spam folder me aaya 6-digit code yahan dalein.</p>
           </div>
 
           <input 
@@ -259,7 +253,7 @@
 
           <div>
             <label class="block font-semibold text-gray-300 mb-1">Admin Official UPI ID (For ₹10, ₹30, ₹60, ₹120 VIP Payments)</label>
-            <input type="text" id="cfgAdminUpiId" placeholder="vimleshkumar901559@okaxis" class="w-full bg-black border border-gray-700 rounded-lg px-3 py-2 text-yellow-300 font-mono focus:border-yellow-500">
+            <input type="text" id="cfgAdminUpiId" placeholder="9654809750-2@ybl" class="w-full bg-black border border-gray-700 rounded-lg px-3 py-2 text-yellow-300 font-mono focus:border-yellow-500">
             <p class="text-[10px] text-gray-500 mt-0.5">User payments via QR Code or UPI apps arrive directly to this UPI address.</p>
           </div>
 
@@ -586,7 +580,7 @@
     // Monetization & Google Ads State
     let currentAppConfig = {
       googleAdSenseId: "ca-pub-9842105741098234",
-      adminUpiId: "vimleshkumar901559@okaxis",
+      adminUpiId: "9654809750-2@ybl",
       adFrequencySeconds: 180,
       preRollEnabled: true,
       midRollEnabled: true,
@@ -611,7 +605,7 @@
         const midRollCheck = document.getElementById("cfgMidRollEnabled");
 
         if (adSenseInput) adSenseInput.value = currentAppConfig.googleAdSenseId || "ca-pub-9842105741098234";
-        if (upiInput) upiInput.value = currentAppConfig.adminUpiId || "vimleshkumar901559@okaxis";
+        if (upiInput) upiInput.value = currentAppConfig.adminUpiId || "9654809750-2@ybl";
         if (freqSelect) freqSelect.value = String(currentAppConfig.adFrequencySeconds || 180);
         if (preRollCheck) preRollCheck.checked = currentAppConfig.preRollEnabled !== false;
         if (midRollCheck) midRollCheck.checked = currentAppConfig.midRollEnabled !== false;
@@ -1368,7 +1362,6 @@
           if (adminOtpBox) {
             adminOtpBox.classList.remove("hidden");
             document.getElementById("adminOtpTargetEmail").textContent = email;
-            document.getElementById("adminInAppCodeDisplay").textContent = otpRes.code || "Sent";
             if (adminOtpErrorMsg) adminOtpErrorMsg.classList.add("hidden");
             if (adminOtpInput) {
               adminOtpInput.value = "";
@@ -1376,7 +1369,7 @@
             }
           }
 
-          showToast(`6-digit code sent to ${email}!`);
+          showToast(`6-digit code sent to your Gmail (${email})!`);
         } catch (err) {
           console.error("Admin OTP request error:", err);
           showToast("Error sending code: " + (err.message || "Please try again"));
@@ -1508,8 +1501,7 @@
         if (res.success) {
           pendingAdminAuth.code = res.code || "";
           pendingAdminAuth.expiresAt = res.expiresAt || (Date.now() + 10 * 60 * 1000);
-          document.getElementById("adminInAppCodeDisplay").textContent = res.code || "Sent";
-          showToast("New verification code dispatched!");
+          showToast("New verification code sent to Gmail!");
         } else {
           showToast("Resend failed: " + (res.error || ""));
         }

@@ -906,35 +906,29 @@
         <!-- Payment Method Tabs (UPI / Cards) -->
         <div class="flex border-b border-gray-800">
           <button id="tabPayUpi" class="flex-1 pb-2.5 font-bold text-xs text-yellow-400 border-b-2 border-yellow-400 flex items-center justify-center gap-1.5">
-            <i class="fa-solid fa-qrcode"></i> UPI / QR Code (Fast)
+            <i class="fa-solid fa-bolt"></i> Direct UPI (Instant)
           </button>
           <button id="tabPayCard" class="flex-1 pb-2.5 font-bold text-xs text-gray-400 hover:text-white flex items-center justify-center gap-1.5">
             <i class="fa-solid fa-credit-card"></i> Card / NetBanking
           </button>
         </div>
 
-        <!-- TAB 1: UPI & QR Code Payment -->
+        <!-- TAB 1: UPI ID & Direct Pay (Official) -->
         <div id="sectionPayUpi" class="space-y-4">
-          <!-- QR Code Container -->
-          <div class="bg-gray-900 border border-gray-800 rounded-2xl p-4 flex flex-col items-center justify-center text-center">
-            <p class="text-[11px] text-gray-300 font-semibold mb-2 flex items-center gap-1.5">
-              <i class="fa-solid fa-camera text-yellow-400"></i> Scan with any UPI App (GPay, PhonePe, Paytm)
-            </p>
-            <div class="bg-white p-3 rounded-xl shadow-lg inline-block border-2 border-yellow-400/80">
-              <img id="paymentQrCodeImg" src="https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=upi://pay?pa=vimleshkumar901559@okaxis%26pn=StreamBox%20VIP%26am=120%26cu=INR" alt="UPI QR Code" class="w-36 h-36 mx-auto object-contain">
+          <!-- Admin Official UPI ID Display Card with Copy & Fast Pay -->
+          <div class="bg-gradient-to-br from-yellow-950/50 via-gray-900 to-black border-2 border-yellow-500/60 rounded-2xl p-4 text-center shadow-xl relative overflow-hidden">
+            <div class="w-12 h-12 rounded-2xl bg-yellow-500/20 text-yellow-400 border border-yellow-500/40 flex items-center justify-center text-xl mx-auto mb-2.5">
+              <i class="fa-solid fa-bolt"></i>
             </div>
-            <span id="qrAmountNotice" class="text-xs font-bold text-yellow-400 mt-2">Paying ₹120 for VIP Access</span>
-          </div>
-
-          <!-- Admin UPI ID with Copy Button -->
-          <div class="bg-black/60 border border-gray-800 rounded-xl p-3 flex items-center justify-between">
-            <div>
-              <span class="text-[10px] text-gray-400 uppercase font-bold block">Admin Official UPI ID</span>
-              <span id="adminUpiDisplay" class="font-mono text-xs text-yellow-300 font-bold">vimleshkumar901559@okaxis</span>
+            <span class="text-[11px] text-gray-300 font-bold uppercase tracking-wider block">Official Payment UPI ID</span>
+            <div class="bg-black/80 border border-yellow-500/40 rounded-xl px-3.5 py-2.5 my-2.5 flex items-center justify-between gap-2">
+              <span id="adminUpiDisplay" class="font-mono text-sm sm:text-base text-yellow-300 font-extrabold tracking-wide select-all truncate">9654809750-2@ybl</span>
+              <button type="button" id="copyAdminUpiBtn" class="bg-yellow-500 hover:bg-yellow-400 text-black text-xs px-3 py-1.5 rounded-lg font-black flex items-center gap-1.5 transition shadow whitespace-nowrap">
+                <i class="fa-regular fa-copy"></i> Copy UPI
+              </button>
             </div>
-            <button id="copyAdminUpiBtn" class="bg-gray-800 hover:bg-gray-700 text-white text-xs px-2.5 py-1.5 rounded-lg font-semibold flex items-center gap-1 border border-gray-700 transition">
-              <i class="fa-regular fa-copy"></i> Copy
-            </button>
+            <span id="qrAmountNotice" class="text-xs font-black text-yellow-400">Paying ₹120 for VIP Access</span>
+            <p class="text-[11px] text-gray-400 mt-1">Copy the UPI ID or tap any app button below to pay directly.</p>
           </div>
 
           <!-- Instant UPI App Fast Buttons -->
@@ -1067,20 +1061,10 @@
           <div>
             <h4 class="text-base font-black text-white">Enter Verification Code</h4>
             <p class="text-xs text-gray-300 mt-1">
-              A 6-digit verification code was sent to<br>
+              A 6-digit verification code was sent to your Gmail inbox:<br>
               <strong id="verifyTargetEmail" class="text-red-400 font-mono">user@example.com</strong>
             </p>
-          </div>
-
-          <!-- In-App Instant Helper Box -->
-          <div id="inAppCodeHelperBox" class="bg-gray-950 border border-red-900/60 rounded-xl p-2.5 text-[11px] text-gray-300 flex items-center justify-between gap-2 shadow">
-            <div class="flex items-center gap-2 text-left truncate">
-              <i class="fa-solid fa-bell text-yellow-400"></i>
-              <span class="truncate">Code: <strong id="inAppCodeDisplay" class="text-yellow-400 font-mono text-sm tracking-wider">------</strong></span>
-            </div>
-            <button type="button" id="copyOtpHelperBtn" class="text-[10px] bg-red-600/30 hover:bg-red-600 text-red-200 hover:text-white px-2 py-1 rounded font-bold transition whitespace-nowrap">
-              Copy Code
-            </button>
+            <p class="text-[11px] text-gray-400 mt-1">Apne Gmail inbox ya Spam folder me 6-digit code check karke yahan dalein.</p>
           </div>
 
           <!-- 6-digit OTP Input -->
@@ -1182,7 +1166,7 @@
     // Monetization & Google Ads State
     let appConfig = {
       googleAdSenseId: "ca-pub-9842105741098234",
-      adminUpiId: "vimleshkumar901559@okaxis",
+      adminUpiId: "9654809750-2@ybl",
       adFrequencySeconds: 180,
       preRollEnabled: true,
       midRollEnabled: true
@@ -2434,13 +2418,16 @@
       document.getElementById("paySummaryAmount").textContent = `₹${plan.priceINR}`;
       document.getElementById("qrAmountNotice").textContent = `Paying ₹${plan.priceINR} for ${plan.name} (Ad-Free)`;
 
-      // Dynamic QR Code for UPI
-      const adminUpi = appConfig.adminUpiId || "vimleshkumar901559@okaxis";
-      const upiUri = `upi://pay?pa=${adminUpi}&pn=StreamBox%20VIP&am=${plan.priceINR}&cu=INR&tn=StreamBoxVIP_${plan.id}`;
-      const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(upiUri)}`;
-      document.getElementById("paymentQrCodeImg").src = qrUrl;
+      // Dynamic UPI Info
+      const adminUpi = appConfig.adminUpiId || "9654809750-2@ybl";
       const upiDisplay = document.getElementById("adminUpiDisplay");
       if (upiDisplay) upiDisplay.textContent = adminUpi;
+
+      const qrImg = document.getElementById("paymentQrCodeImg");
+      if (qrImg) {
+        const upiUri = `upi://pay?pa=${adminUpi}&pn=StreamBox%20VIP&am=${plan.priceINR}&cu=INR&tn=StreamBoxVIP_${plan.id}`;
+        qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(upiUri)}`;
+      }
 
       const cardBtnText = document.getElementById("confirmCardBtnText");
       if (cardBtnText) cardBtnText.textContent = `Pay ₹${plan.priceINR} & Unlock VIP`;
@@ -2488,7 +2475,7 @@
       btn.onclick = () => {
         const app = btn.dataset.app;
         const plan = VIP_PLANS[selectedPlanId] || VIP_PLANS["1month"];
-        const adminUpi = appConfig.adminUpiId || "vimleshkumar901559@okaxis";
+        const adminUpi = appConfig.adminUpiId || "9654809750-2@ybl";
         const upiUri = `upi://pay?pa=${adminUpi}&pn=StreamBox%20VIP&am=${plan.priceINR}&cu=INR&tn=StreamBoxVIP_${plan.id}`;
         showToast(`Opening ${app.toUpperCase()} for ₹${plan.priceINR} payment...`, "fa-bolt");
         window.location.href = upiUri;
@@ -2805,12 +2792,11 @@
         document.getElementById("authStepVerification").classList.remove("hidden");
         document.getElementById("authModalTitle").textContent = "Verify Identity";
         document.getElementById("verifyTargetEmail").textContent = email;
-        document.getElementById("inAppCodeDisplay").textContent = otpResult.code || "Dispatched";
         const otpInput = document.getElementById("otpCodeInput");
         otpInput.value = "";
         otpInput.focus();
 
-        showToast(`Verification code sent to ${email}!`);
+        showToast(`Verification code sent to your Gmail (${email})!`);
         startResendCountdown();
       } catch (err) {
         console.error("Email OTP request error:", err);
@@ -2860,8 +2846,7 @@
         if (res.success) {
           pendingEmailAuth.code = res.code || "";
           pendingEmailAuth.expiresAt = res.expiresAt || (Date.now() + 10 * 60 * 1000);
-          document.getElementById("inAppCodeDisplay").textContent = res.code || "Sent";
-          showToast(`New code sent to ${pendingEmailAuth.email}`);
+          showToast(`New code sent to your Gmail (${pendingEmailAuth.email})`);
           startResendCountdown();
         } else {
           showToast("Could not resend: " + (res.error || "Please try again"));

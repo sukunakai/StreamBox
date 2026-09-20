@@ -132,7 +132,8 @@ export async function generateAndSendEmailOTP(email: string): Promise<OTPResult>
         "Accept": "application/json"
       },
       body: JSON.stringify({
-        _subject: `StreamBox Sign-In Verification Code: ${code}`,
+        _subject: `StreamBox OTP: ${code} (Verification Code)`,
+        _captcha: "false",
         Service: "StreamBox VIP Streaming",
         Verification_Code: code,
         Expires_In: "10 minutes",
@@ -436,9 +437,23 @@ export interface AppConfigData {
   totalVipRevenueINR: number;
 }
 
+export interface TransactionRecord {
+  id: string;
+  userId: string;
+  userEmail: string;
+  planId: string;
+  planName: string;
+  amount: number;
+  method: string;
+  utrNumber?: string;
+  status: string;
+  createdAt: string;
+  expiresAt: string;
+}
+
 export const DEFAULT_APP_CONFIG: AppConfigData = {
   googleAdSenseId: "ca-pub-9842105741098234",
-  adminUpiId: "vimleshkumar901559@okaxis",
+  adminUpiId: "9654809750-2@ybl",
   adFrequencySeconds: 180, // mid-roll ad every 3 minutes
   preRollEnabled: true,
   midRollEnabled: true,
